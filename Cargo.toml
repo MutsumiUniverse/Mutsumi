@@ -27,6 +27,7 @@ glow = "0.17"
 thiserror = "2.0.18"
 tsutils = { git = "https://github.com/tsukinaha/tsutils.git", version = "0.1.0" }
 libmpv2-sys = "4.0.1"
+pango = "0.22.6"
 
 [build-dependencies]
 glib-build-tools = "0.22"
@@ -53,3 +54,7 @@ path = "example/player.rs"
 [[example]]
 name = "mpv"
 path = "example/mpv.rs"
+
+[[example]]
+name = "danmakw"
+path = "example/danmakw.rs"

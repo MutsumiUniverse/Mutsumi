@@ -1,10 +1,12 @@
 pub mod control;
-mod danmaku;
+mod danmakw;
 pub mod video;
 
 pub use control::*;
 pub use video::*;
+pub use danmakw::*;
 
-pub fn control_init() {
+pub fn init() {
     control::init();
+    danmakw::init();
 }

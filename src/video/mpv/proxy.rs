@@ -196,7 +196,7 @@ impl WlRegistryHandler for RegistryHandler {
             self.mapper.ignore_global(name);
         } else if interface == ObjectInterface::ZwpLinuxDmabufV1 {
             self.mapper
-                .forward_global(slf, name, interface, version.min(3));
+                .forward_global(slf, name, interface, version.min(4));
         } else {
             self.mapper.forward_global(slf, name, interface, version);
         }
@@ -386,6 +386,22 @@ impl ZwpLinuxDmabufV1Handler for DmabufHandler {
             planes: Vec::new(),
             modifier: 0,
         });
+    }
+
+    fn handle_get_default_feedback(
+        &mut self,
+        slf: &Rc<ZwpLinuxDmabufV1>,
+        id: &Rc<ZwpLinuxDmabufFeedbackV1>,
+    ) {
+        let allowed = ALLOWED_FORMAT_PAIRS.get().cloned().unwrap_or_default();
+        id.set_handler(FeedbackHandler {
+            allowed,
+            index_map: Vec::new(),
+            pending_device: None,
+            pending_flags: None,
+            pending_formats: Vec::new(),
+        });
+        slf.send_get_default_feedback(id);
     }
 
     fn handle_get_surface_feedback(

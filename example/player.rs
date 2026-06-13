@@ -15,7 +15,7 @@ fn main() {
         .build();
 
     app.connect_activate(move |app| {
-        mutsumi::control_init();
+        mutsumi::init();
 
         let player = PlayerPage::new();
 
