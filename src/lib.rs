@@ -1,6 +1,5 @@
 pub mod control;
 mod danmaku;
-mod error;
 pub mod video;
 
 pub use control::*;

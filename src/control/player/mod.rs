@@ -2,9 +2,7 @@ use adw::{prelude::*, subclass::prelude::*};
 use gtk::{Builder, CompositeTemplate, PopoverMenu, gdk::Rectangle, gio, glib};
 
 use crate::{
-    ChapterList, ListenEvent, MPV_EVENT_CHANNEL, MpvTrack, MpvTracks, MutsumiVideoPlayer,
-    TrackKind, TrackSelection,
-    control::{ControlSidebar, GlobalToast, MenuActions, VideoScale, VolumeBar, format_duration},
+    ChapterList, ListenEvent, MPV_EVENT_CHANNEL, MpvActor, MpvTrack, MpvTracks, MutsumiVideoPlayer, PlayParams, TrackKind, TrackSelection, control::{ControlSidebar, GlobalToast, MenuActions, VideoScale, VolumeBar, format_duration}
 };
 
 /// Minimum interval between two pointer motion events that reveal the
@@ -14,7 +12,7 @@ const NEXT_CHAPTER_KEYVAL: u32 = 65365; // Page_Up
 const PREV_CHAPTER_KEYVAL: u32 = 65366; // Page_Down
 
 mod imp {
-    use std::cell::{Cell, RefCell};
+    use std::cell::{Cell, OnceCell, RefCell};
 
     use glib::subclass::InitializingObject;
 
@@ -81,6 +79,8 @@ mod imp {
         pub x: Cell<f64>,
         pub y: Cell<f64>,
         pub last_motion_time: Cell<i64>,
+
+        pub shortcuts_dialog: OnceCell<adw::ShortcutsDialog>,
     }
 
     #[glib::object_subclass]
@@ -214,21 +214,30 @@ impl PlayerPage {
         glib::Object::new()
     }
 
-    /// The underlying video player, for direct backend access.
     pub fn player(&self) -> MutsumiVideoPlayer {
         self.imp().video.get()
     }
 
-    pub fn play(&self, url: &str, percentage: f64) {
-        self.imp().video.play(url, percentage);
+    pub fn mpv(&self) -> MpvActor{
+        self.imp().video.get().backend_ref().mpv().mpv
+    }
+
+    pub fn play(&self, params: &PlayParams) {
+        if let Some(ref title) = params.title {
+            self.set_video_title(title.to_owned());
+        }
+
+        if let Some(ref subtitle) = params.subtitle {
+            self.set_video_subtitle(subtitle.to_owned());
+        }
+
+        self.imp().video.play(params);
     }
 
     pub fn stop(&self) {
         self.imp().video.stop();
     }
 
-    /// Show or hide the on-screen controls programmatically. They will
-    /// still fade out automatically once the pointer rests on the video.
     pub fn reveal_controls(&self, reveal: bool) {
         self.set_reveal_overlay(reveal);
         if reveal {
@@ -277,7 +286,6 @@ impl PlayerPage {
                             obj.update_seeking(false);
                         }
                         ListenEvent::Error(value) => {
-                            tracing::error!("MPV error: {value}");
                             obj.toast(value);
                         }
                         ListenEvent::Pause(value) => {
@@ -364,13 +372,23 @@ impl PlayerPage {
         imp.control_sidebar.set_playback_speed(value);
     }
 
-    fn show_shortcuts_dialog(&self) {
-        let builder = Builder::from_resource("/io/github/mutsumi/ui/shortcuts.ui");
-        let Some(dialog) = builder.object::<adw::ShortcutsDialog>("shortcuts_dialog") else {
-            tracing::error!("Failed to load shortcuts dialog");
-            return;
+    fn shortcuts_dialog_is_presented(&self) -> bool {
+        let Some(dialog) = self.imp().shortcuts_dialog.get() else {
+            return false;
         };
+
+        dialog.parent().is_some()
+    }
+
+    fn show_shortcuts_dialog(&self) {
+        let dialog = self.imp().shortcuts_dialog.get_or_init(|| self.create_shortcuts_dialog());
+
         dialog.present(Some(self));
+    }
+
+    fn create_shortcuts_dialog(&self) -> adw::ShortcutsDialog {
+        let builder = Builder::from_resource("/io/github/mutsumi/ui/shortcuts.ui");
+        builder.object::<adw::ShortcutsDialog>("shortcuts_dialog").expect("Failed to load shortcuts dialog")
     }
 
     fn on_time_pos(&self, value: i64) {
@@ -642,27 +660,19 @@ impl PlayerPage {
     fn can_fade_overlay(&self) -> bool {
         let imp = self.imp();
 
-        if imp.split_view.shows_sidebar() {
-            return false;
-        }
-
-        if imp.audio_tracks_menu_button.is_active()
-            || imp.subtitle_tracks_menu_button.is_active()
-            || imp.volume_button.is_active()
-        {
-            return false;
-        }
-
         let x = imp.x.get();
         let y = imp.y.get();
-        if x >= 0.0 && y >= 0.0 {
-            // Only fade out when the pointer rests on the video itself, not
-            // on any of the overlaid controls.
-            if let Some(widget) = self.pick(x, y, gtk::PickFlags::DEFAULT) {
-                if widget.ancestor(MutsumiVideoPlayer::static_type()).is_none() {
-                    return false;
-                }
+
+
+
+        if let Some(widget) = self.pick(x, y, gtk::PickFlags::DEFAULT) {
+            if widget.downcast_ref::<gtk::Picture>().is_none() {
+                return false;
             }
+        }
+
+        if self.shortcuts_dialog_is_presented() {
+            return false;
         }
 
         true

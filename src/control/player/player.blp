@@ -2,522 +2,530 @@ using Gtk 4.0;
 using Adw 1;
 
 template $PlayerPage: Adw.Bin {
-  focusable: true;
+    focusable: true;
 
-  EventControllerMotion {
-    motion => $on_motion() swapped;
-    leave => $on_leave() swapped;
-    enter => $on_enter() swapped;
-  }
+    EventControllerMotion {
+        motion => $on_motion() swapped;
+        leave => $on_leave() swapped;
+        enter => $on_enter() swapped;
+    }
 
-  EventControllerKey {
-    key-pressed => $on_key_pressed() swapped;
-    key-released => $on_key_released() swapped;
-  }
+    EventControllerKey {
+        key-pressed => $on_key_pressed() swapped;
+        key-released => $on_key_released() swapped;
+    }
 
-  Adw.OverlaySplitView split_view {
-    sidebar-position: end;
-    show-sidebar: false;
-    collapsed: true;
-    max-sidebar-width: 400;
+    Adw.ToastOverlay {
 
-    sidebar: $ControlSidebar control_sidebar {};
+        Adw.OverlaySplitView split_view {
+            sidebar-position: end;
+            show-sidebar: false;
+            collapsed: false;
+            max-sidebar-width: 400;
+            min-sidebar-width: 320;
 
-    content: Overlay {
-      $MutsumiVideoPlayer video {
-        hexpand: "true";
-        vexpand: "true";
-      }
+            sidebar: $ControlSidebar control_sidebar {};
 
-      GestureClick {
-        button: 1;
-        released => $left_click_cb() swapped;
-      }
+            content: Overlay {
+                $MutsumiVideoPlayer video {
+                    hexpand: "true";
+                    vexpand: "true";
+                }
 
-      GestureClick {
-        button: 3;
-        released => $right_click_cb() swapped;
-      }
+                GestureClick {
+                    button: 1;
+                    released => $left_click_cb() swapped;
+                }
 
-      EventControllerScroll {
-        flags: vertical;
-        scroll => $video_scroll_cb() swapped;
-      }
+                GestureClick {
+                    button: 3;
+                    released => $right_click_cb() swapped;
+                }
 
-      [overlay]
-      $VolumeBar volume_bar {
-        halign: "start";
-        valign: "center";
-        margin-start: "10";
-      }
+                EventControllerScroll {
+                    flags: vertical;
+                    scroll => $video_scroll_cb() swapped;
+                }
 
-      [overlay]
-      Box loading_box {
-        visible: false;
-        valign: center;
-        halign: center;
-        orientation: vertical;
-        height-request: 160;
-        width-request: 160;
-        spacing: 20;
+                [overlay]
+                $VolumeBar volume_bar {
+                    halign: "start";
+                    valign: "center";
+                    margin-start: "10";
+                }
 
-        Adw.Spinner spinner {
-          halign: center;
-          valign: center;
-          height-request: 64;
-          width-request: 64;
-          margin-top: 20;
+                [overlay]
+                Box loading_box {
+                    visible: false;
+                    valign: center;
+                    halign: center;
+                    orientation: vertical;
+                    height-request: 160;
+                    width-request: 160;
+                    spacing: 20;
 
-          styles [
-            "accent",
-          ]
+                    Adw.Spinner spinner {
+                        halign: center;
+                        valign: center;
+                        height-request: 64;
+                        width-request: 64;
+                        margin-top: 20;
+
+                        styles [
+                            "accent",
+                        ]
+                    }
+
+                    Label network_speed_label {
+                        halign: center;
+                        margin-bottom: 20;
+
+                        styles [
+                            "accent",
+                            "speed-label",
+                        ]
+                    }
+                }
+
+                [overlay]
+                Revealer top_revealer {
+                    transition-type: crossfade;
+                    transition-duration: 800;
+                    reveal-child: false;
+                    halign: fill;
+                    valign: start;
+                    focusable: false;
+
+                    Adw.HeaderBar {
+                        show-start-title-buttons: false;
+                        show-end-title-buttons: false;
+
+                        title-widget: Box {};
+
+                        [start]
+                        Box {
+                            orientation: horizontal;
+                            spacing: 10;
+                            valign: center;
+
+                            Box title_box {
+                                orientation: vertical;
+                                valign: center;
+                                spacing: 0;
+
+                                Label title_label {
+                                    halign: start;
+                                    ellipsize: middle;
+                                    label: bind template.video-title;
+
+                                    styles [
+                                        "heading",
+                                    ]
+                                }
+
+                                Label subtitle_label {
+                                    halign: start;
+                                    ellipsize: middle;
+                                    label: bind template.video-subtitle;
+
+                                    styles [
+                                        "dimmed",
+                                        "caption",
+                                    ]
+                                }
+                            }
+                        }
+
+                        [end]
+                        Box {
+                            orientation: horizontal;
+                            spacing: 6;
+
+                            Button network_speed_button {
+                                valign: center;
+                                visible: bind control_sidebar.show-buffer-speed;
+
+                                child: Adw.ButtonContent {
+                                    icon-name: "speedometer5-symbolic";
+                                    label: bind network_speed_label.label;
+                                };
+
+                                styles [
+                                    "accent",
+                                ]
+                            }
+
+                            Button {
+                                valign: center;
+                                icon-name: "keyboard-shortcuts-symbolic";
+                                tooltip-text: _("Shortcuts");
+                                action-name: "player.show-shortcuts";
+
+                                styles [
+                                    "flat",
+                                    "circular",
+                                ]
+                            }
+
+                            Button _media_info_button {
+                                valign: center;
+                                icon-name: "help-about-symbolic";
+                                focusable: true;
+                                receives-default: true;
+                                tooltip-text: _("Media info");
+                                action-name: "player.show-info";
+
+                                styles [
+                                    "flat",
+                                    "circular",
+                                ]
+                            }
+
+                            WindowControls {
+                                side: end;
+
+                                styles [
+                                    "flat",
+                                ]
+                            }
+                        }
+
+                        styles [
+                            "flat",
+                            "mpv-top-bar",
+                        ]
+                    }
+                }
+
+                [overlay]
+                Revealer bottom_revealer {
+                    transition-type: crossfade;
+                    transition-duration: 800;
+                    reveal-child: false;
+                    halign: fill;
+                    valign: end;
+                    focusable: false;
+
+                    Box {
+                        orientation: vertical;
+                        halign: fill;
+                        hexpand: true;
+                        spacing: 4;
+
+                        CenterBox {
+                            [start]
+                            Box {
+                                orientation: horizontal;
+                                spacing: 10;
+
+                                Button {
+                                    tooltip-text: _("Backward");
+                                    action-name: "player.backward";
+                                    valign: center;
+
+                                    Image {
+                                        icon-name: "seek-backward-large-symbolic";
+                                        pixel-size: 24;
+                                        halign: center;
+                                        valign: center;
+                                    }
+
+                                    styles [
+                                        "circular",
+                                        "flat",
+                                    ]
+                                }
+
+                                Button _play_button {
+                                    height-request: 48;
+                                    width-request: 48;
+                                    focusable: true;
+                                    receives-default: true;
+                                    valign: center;
+                                    tooltip-text: _("Pause");
+                                    action-name: "player.play-pause";
+
+                                    Image play_pause_image {
+                                        icon-name: "media-playback-pause-symbolic";
+                                        pixel-size: 32;
+                                        halign: center;
+                                        valign: center;
+                                    }
+
+                                    styles [
+                                        "flat",
+                                        "mpv-play-button",
+                                        "circular",
+                                    ]
+                                }
+
+                                Button {
+                                    tooltip-text: _("Forward");
+                                    action-name: "player.forward";
+                                    valign: center;
+
+                                    Image {
+                                        icon-name: "seek-forward-large-symbolic";
+                                        pixel-size: 24;
+                                        halign: center;
+                                        valign: center;
+                                    }
+
+                                    styles [
+                                        "circular",
+                                        "flat",
+                                    ]
+                                }
+                            }
+
+                            [end]
+                            Box {
+                                orientation: horizontal;
+                                spacing: 6;
+                                valign: center;
+
+                                Button playback_speed_indicator {
+                                    valign: center;
+                                    margin-end: 6;
+                                    visible: false;
+                                    clicked => $playback_speed_indicator_cb() swapped;
+
+                                    child: Adw.ButtonContent playback_speed_button_content {
+                                        icon-name: "playback-options-symbolic";
+                                    };
+
+                                    styles [
+                                        "accent",
+                                        "monospace",
+                                    ]
+                                }
+
+                                Box {
+                                    orientation: horizontal;
+                                    spacing: 2;
+                                    valign: center;
+
+                                    MenuButton audio_tracks_menu_button {
+                                        popover: audio_tracks_popover;
+                                        icon-name: "audio-x-generic-symbolic";
+                                        tooltip-text: _("Audio");
+                                        valign: center;
+
+                                        styles [
+                                            "flat",
+                                            "circular",
+                                        ]
+                                    }
+
+                                    MenuButton subtitle_tracks_menu_button {
+                                        popover: subtitle_tracks_popover;
+                                        icon-name: "media-view-subtitles-symbolic";
+                                        tooltip-text: _("Subtitle");
+                                        valign: center;
+
+                                        styles [
+                                            "flat",
+                                            "circular",
+                                        ]
+                                    }
+
+                                    MenuButton volume_button {
+                                        popover: volume_adj_popover;
+                                        icon-name: "audio-volume-high-symbolic";
+                                        tooltip-text: _("Adjust Volume");
+                                        valign: center;
+
+                                        styles [
+                                            "flat",
+                                            "circular",
+                                        ]
+                                    }
+
+                                    Button {
+                                        icon-name: "settings-symbolic";
+                                        action-name: "player.show-settings";
+                                        tooltip-text: _("Advanced settings");
+                                        valign: center;
+
+                                        styles [
+                                            "flat",
+                                            "circular",
+                                        ]
+                                    }
+
+                                    Button {
+                                        visible: bind template.fullscreened inverted;
+                                        icon-name: "view-fullscreen-symbolic";
+                                        action-name: "player.toggle-fullscreen";
+                                        tooltip-text: _("Fullscreen");
+                                        valign: center;
+
+                                        accessibility {
+                                            label: _("Fullscreen");
+                                        }
+
+                                        styles [
+                                            "flat",
+                                            "circular",
+                                        ]
+                                    }
+
+                                    Button {
+                                        visible: bind template.fullscreened;
+                                        icon-name: "view-restore-symbolic";
+                                        action-name: "player.toggle-fullscreen";
+                                        valign: center;
+                                        tooltip-text: _("Exit Fullscreen");
+
+                                        accessibility {
+                                            label: _("Exit Fullscreen");
+                                        }
+
+                                        styles [
+                                            "flat",
+                                            "circular",
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+
+                        Box {
+                            orientation: horizontal;
+                            spacing: 8;
+
+                            Label progress_time_label {
+                                focusable: false;
+                                halign: start;
+                                valign: center;
+                                label: "0:00";
+
+                                styles [
+                                    "numeric",
+                                ]
+                            }
+
+                            $VideoScale video_scale {
+                                focusable: "True";
+                                valign: "center";
+                                hexpand: "True";
+                                draw-value: "False";
+                                restrict-to-fill-level: "False";
+                                show-fill-level: "True";
+                                value-changed => $on_progress_value_changed() swapped;
+
+                                styles [
+                                    "accent",
+                                    "mpv-seekbar",
+                                ]
+                            }
+
+                            Label duration_label {
+                                focusable: false;
+                                halign: start;
+                                valign: center;
+                                label: "0:00";
+
+                                styles [
+                                    "numeric",
+                                ]
+                            }
+                        }
+
+                        styles [
+                            "mpv-bottom-bar",
+                        ]
+                    }
+                }
+            };
+
+            styles [
+                "osd",
+            ]
         }
-
-        Label network_speed_label {
-          halign: center;
-          margin-bottom: 20;
-
-          styles [
-            "accent",
-            "speed-label",
-          ]
-        }
-      }
-
-      [overlay]
-      Revealer top_revealer {
-        transition-type: crossfade;
-        transition-duration: 800;
-        reveal-child: false;
-        halign: fill;
-        valign: start;
-        focusable: false;
-
-        Adw.HeaderBar {
-          show-start-title-buttons: false;
-          show-end-title-buttons: false;
-
-          title-widget: Box {};
-
-          [start]
-          Box {
-            orientation: horizontal;
-            spacing: 10;
-            valign: center;
-
-            Box title_box {
-              orientation: vertical;
-              valign: center;
-              spacing: 0;
-
-              Label title_label {
-                halign: start;
-                ellipsize: middle;
-                label: bind template.video-title;
-
-                styles [
-                  "heading",
-                ]
-              }
-
-              Label subtitle_label {
-                halign: start;
-                ellipsize: middle;
-                label: bind template.video-subtitle;
-
-                styles [
-                  "dimmed",
-                  "caption",
-                ]
-              }
-            }
-          }
-
-          [end]
-          Box {
-            orientation: horizontal;
-            spacing: 6;
-
-            Button network_speed_button {
-              valign: center;
-              visible: bind control_sidebar.show-buffer-speed;
-
-              child: Adw.ButtonContent {
-                icon-name: "speedometer5-symbolic";
-                label: bind network_speed_label.label;
-              };
-
-              styles [
-                "accent",
-              ]
-            }
-
-            Button {
-              valign: center;
-              icon-name: "keyboard-shortcuts-symbolic";
-              tooltip-text: _("Shortcuts");
-              action-name: "player.show-shortcuts";
-
-              styles [
-                "flat",
-                "circular",
-              ]
-            }
-
-            Button _media_info_button {
-              valign: center;
-              icon-name: "help-about-symbolic";
-              focusable: true;
-              receives-default: true;
-              tooltip-text: _("Media info");
-              action-name: "player.show-info";
-
-              styles [
-                "flat",
-                "circular",
-              ]
-            }
-
-            WindowControls {
-              side: end;
-
-              styles [
-                "flat",
-              ]
-            }
-          }
-
-          styles [
-            "flat",
-            "mpv-top-bar",
-          ]
-        }
-      }
-
-      [overlay]
-      Revealer bottom_revealer {
-        transition-type: crossfade;
-        transition-duration: 800;
-        reveal-child: false;
-        halign: fill;
-        valign: end;
-        focusable: false;
-
-        Box {
-          orientation: vertical;
-          halign: fill;
-          hexpand: true;
-          spacing: 4;
-
-          CenterBox {
-            [start]
-            Box {
-              orientation: horizontal;
-              spacing: 10;
-
-              Button {
-                tooltip-text: _("Backward");
-                action-name: "player.backward";
-                valign: center;
-
-                Image {
-                  icon-name: "seek-backward-large-symbolic";
-                  pixel-size: 24;
-                  halign: center;
-                  valign: center;
-                }
-
-                styles [
-                  "circular",
-                  "flat",
-                ]
-              }
-
-              Button _play_button {
-                height-request: 48;
-                width-request: 48;
-                focusable: true;
-                receives-default: true;
-                valign: center;
-                tooltip-text: _("Pause");
-                action-name: "player.play-pause";
-
-                Image play_pause_image {
-                  icon-name: "media-playback-pause-symbolic";
-                  pixel-size: 32;
-                  halign: center;
-                  valign: center;
-                }
-
-                styles [
-                  "flat",
-                  "mpv-play-button",
-                  "circular",
-                ]
-              }
-
-              Button {
-                tooltip-text: _("Forward");
-                action-name: "player.forward";
-                valign: center;
-
-                Image {
-                  icon-name: "seek-forward-large-symbolic";
-                  pixel-size: 24;
-                  halign: center;
-                  valign: center;
-                }
-
-                styles [
-                  "circular",
-                  "flat",
-                ]
-              }
-            }
-
-            [end]
-            Box {
-              orientation: horizontal;
-              spacing: 6;
-              valign: center;
-
-              Button playback_speed_indicator {
-                valign: center;
-                margin-end: 6;
-                visible: false;
-                clicked => $playback_speed_indicator_cb() swapped;
-
-                child: Adw.ButtonContent playback_speed_button_content {
-                  icon-name: "playback-options-symbolic";
-                };
-
-                styles [
-                  "accent",
-                  "monospace",
-                ]
-              }
-
-              Box {
-                orientation: horizontal;
-                spacing: 2;
-                valign: center;
-
-                MenuButton audio_tracks_menu_button {
-                  popover: audio_tracks_popover;
-                  icon-name: "audio-x-generic-symbolic";
-                  tooltip-text: _("Audio");
-                  valign: center;
-
-                  styles [
-                    "flat",
-                    "circular",
-                  ]
-                }
-
-                MenuButton subtitle_tracks_menu_button {
-                  popover: subtitle_tracks_popover;
-                  icon-name: "media-view-subtitles-symbolic";
-                  tooltip-text: _("Subtitle");
-                  valign: center;
-
-                  styles [
-                    "flat",
-                    "circular",
-                  ]
-                }
-
-                MenuButton volume_button {
-                  popover: volume_adj_popover;
-                  icon-name: "audio-volume-high-symbolic";
-                  tooltip-text: _("Adjust Volume");
-                  valign: center;
-
-                  styles [
-                    "flat",
-                    "circular",
-                  ]
-                }
-
-                Button {
-                  icon-name: "settings-symbolic";
-                  action-name: "player.show-settings";
-                  tooltip-text: _("Advanced settings");
-                  valign: center;
-
-                  styles [
-                    "flat",
-                    "circular",
-                  ]
-                }
-
-                Button {
-                  visible: bind template.fullscreened inverted;
-                  icon-name: "view-fullscreen-symbolic";
-                  action-name: "player.toggle-fullscreen";
-                  tooltip-text: _("Fullscreen");
-                  valign: center;
-
-                  accessibility {
-                    label: _("Fullscreen");
-                  }
-
-                  styles [
-                    "flat",
-                    "circular",
-                  ]
-                }
-
-                Button {
-                  visible: bind template.fullscreened;
-                  icon-name: "view-restore-symbolic";
-                  action-name: "player.toggle-fullscreen";
-                  valign: center;
-                  tooltip-text: _("Exit Fullscreen");
-
-                  accessibility {
-                    label: _("Exit Fullscreen");
-                  }
-
-                  styles [
-                    "flat",
-                    "circular",
-                  ]
-                }
-              }
-            }
-          }
-
-          Box {
-            orientation: horizontal;
-            spacing: 8;
-
-            Label progress_time_label {
-              focusable: false;
-              halign: start;
-              valign: center;
-              label: "0:00";
-
-              styles [
-                "numeric",
-              ]
-            }
-
-            $VideoScale video_scale {
-              focusable: "True";
-              valign: "center";
-              hexpand: "True";
-              draw-value: "False";
-              restrict-to-fill-level: "False";
-              show-fill-level: "True";
-              value-changed => $on_progress_value_changed() swapped;
-
-              styles [
-                "accent",
-                "mpv-seekbar",
-              ]
-            }
-
-            Label duration_label {
-              focusable: false;
-              halign: start;
-              valign: center;
-              label: "0:00";
-
-              styles [
-                "numeric",
-              ]
-            }
-          }
-
-          styles [
-            "mpv-bottom-bar",
-          ]
-        }
-      }
-    };
-  }
+    }
 }
 
 Popover subtitle_tracks_popover {
-  height-request: 300;
-  width-request: 320;
-  position: top;
-  has-arrow: true;
+    height-request: 300;
+    width-request: 320;
+    position: top;
+    has-arrow: true;
 
-  ScrolledWindow {
-    ListBox sub_listbox {
-      selection-mode: none;
-      valign: start;
+    ScrolledWindow {
+        ListBox sub_listbox {
+            selection-mode: none;
+            valign: start;
 
-      styles [
-        "boxed-list-separate",
-      ]
+            styles [
+                "boxed-list-separate",
+            ]
+        }
     }
-  }
 }
 
 Popover audio_tracks_popover {
-  height-request: 300;
-  width-request: 320;
-  position: top;
-  has-arrow: true;
+    height-request: 300;
+    width-request: 320;
+    position: top;
+    has-arrow: true;
 
-  ScrolledWindow {
-    ListBox audio_listbox {
-      selection-mode: none;
-      valign: start;
+    ScrolledWindow {
+        ListBox audio_listbox {
+            selection-mode: none;
+            valign: start;
 
-      styles [
-        "boxed-list-separate",
-      ]
+            styles [
+                "boxed-list-separate",
+            ]
+        }
     }
-  }
 }
 
 Popover volume_adj_popover {
-  position: top;
-  has-arrow: true;
+    position: top;
+    has-arrow: true;
 
-  Scale volume_scale {
-    adjustment: volume_adj;
-    height-request: 180;
-    halign: center;
-    margin-end: 6;
-    draw-value: false;
-    orientation: vertical;
-    inverted: true;
-    value-changed => $on_volume_scale_value_changed() swapped;
+    Scale volume_scale {
+        adjustment: volume_adj;
+        height-request: 180;
+        halign: center;
+        margin-end: 6;
+        draw-value: false;
+        orientation: vertical;
+        inverted: true;
+        value-changed => $on_volume_scale_value_changed() swapped;
 
-    styles [
-      "accent",
-    ]
-  }
+        styles [
+            "accent",
+        ]
+    }
 }
 
 Adjustment volume_adj {
-  lower: 0;
-  upper: 100;
-  value: 75;
-  step-increment: 1;
-  page-increment: 4;
+    lower: 0;
+    upper: 100;
+    value: 75;
+    step-increment: 1;
+    page-increment: 4;
 }
 
 SizeGroup {
-  mode: vertical;
+    mode: vertical;
 
-  widgets [
-    _play_button,
-    progress_time_label,
-    video_scale,
-    duration_label,
-  ]
+    widgets [
+        _play_button,
+        progress_time_label,
+        video_scale,
+        duration_label,
+    ]
 }
 
 SizeGroup {
-  mode: vertical;
+    mode: vertical;
 
-  widgets [
-    network_speed_button,
-    _media_info_button,
-  ]
+    widgets [
+        network_speed_button,
+        _media_info_button,
+    ]
 }

@@ -112,9 +112,9 @@ impl ContextedMPV {
         self.mpv.command("loadfile", &[url, "replace"]);
     }
 
-    pub fn set_start(&self, percentage: f64) {
+    pub fn set_start_time(&self, second: u64) {
         self.mpv
-            .set_property("start", format!("{}%", percentage as u32));
+            .set_property("start", format!("{}", second));
     }
 
     pub fn set_volume(&self, volume: i64) {

@@ -1,9 +1,9 @@
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     rc::Rc,
-    sync::Mutex,
+    sync::{Mutex, Once, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -15,7 +15,10 @@ use wl_proxy::protocols::{
         zwp_linux_buffer_params_v1::{
             ZwpLinuxBufferParamsV1, ZwpLinuxBufferParamsV1Flags, ZwpLinuxBufferParamsV1Handler,
         },
-        zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
+        zwp_linux_dmabuf_feedback_v1::{
+            ZwpLinuxDmabufFeedbackV1, ZwpLinuxDmabufFeedbackV1Handler,
+            ZwpLinuxDmabufFeedbackV1TrancheFlags,
+        },
         zwp_linux_dmabuf_v1::{ZwpLinuxDmabufV1, ZwpLinuxDmabufV1Handler},
     },
     viewporter::{
@@ -344,16 +347,7 @@ impl WlSurfaceHandler for SurfaceHandler {
     }
 }
 
-const fn drm_fourcc(code: &[u8; 4]) -> u32 {
-    u32::from_le_bytes(*code)
-}
-
-const ALLOWED_FORMATS: [u32; 4] = [
-    drm_fourcc(b"AR24"), // ARGB8888
-    drm_fourcc(b"XR24"), // XRGB8888
-    drm_fourcc(b"AB24"), // ABGR8888
-    drm_fourcc(b"XB24"), // XBGR8888
-];
+static ALLOWED_FORMAT_PAIRS: OnceLock<HashSet<(u32, u64)>> = OnceLock::new();
 
 struct DmabufHandler {
     state: Rc<RefCell<SharedState>>,
@@ -361,7 +355,8 @@ struct DmabufHandler {
 
 impl ZwpLinuxDmabufV1Handler for DmabufHandler {
     fn handle_format(&mut self, slf: &Rc<ZwpLinuxDmabufV1>, format: u32) {
-        if ALLOWED_FORMATS.contains(&format) {
+        let allowed = ALLOWED_FORMAT_PAIRS.get();
+        if allowed.map_or(false, |pairs| pairs.iter().any(|(f, _)| *f == format)) {
             slf.send_format(format);
         }
     }
@@ -373,7 +368,9 @@ impl ZwpLinuxDmabufV1Handler for DmabufHandler {
         modifier_hi: u32,
         modifier_lo: u32,
     ) {
-        if ALLOWED_FORMATS.contains(&format) {
+        let modifier = ((modifier_hi as u64) << 32) | (modifier_lo as u64);
+        let allowed = ALLOWED_FORMAT_PAIRS.get();
+        if allowed.map_or(false, |pairs| pairs.contains(&(format, modifier))) {
             slf.send_modifier(format, modifier_hi, modifier_lo);
         }
     }
@@ -397,7 +394,134 @@ impl ZwpLinuxDmabufV1Handler for DmabufHandler {
         id: &Rc<ZwpLinuxDmabufFeedbackV1>,
         _surface: &Rc<WlSurface>,
     ) {
+        let allowed = ALLOWED_FORMAT_PAIRS.get().cloned().unwrap_or_default();
+        id.set_handler(FeedbackHandler {
+            allowed,
+            index_map: Vec::new(),
+            pending_device: None,
+            pending_flags: None,
+            pending_formats: Vec::new(),
+        });
         slf.send_get_default_feedback(id);
+    }
+}
+
+struct FeedbackHandler {
+    allowed: HashSet<(u32, u64)>,
+    index_map: Vec<Option<u16>>,
+    pending_device: Option<Vec<u8>>,
+    pending_flags: Option<ZwpLinuxDmabufFeedbackV1TrancheFlags>,
+    pending_formats: Vec<u16>,
+}
+
+impl ZwpLinuxDmabufFeedbackV1Handler for FeedbackHandler {
+    fn handle_format_table(
+        &mut self,
+        slf: &Rc<ZwpLinuxDmabufFeedbackV1>,
+        fd: &Rc<OwnedFd>,
+        size: u32,
+    ) {
+        let num_entries = size as usize / 16;
+        let ptr = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                size as usize,
+                libc::PROT_READ,
+                libc::MAP_PRIVATE,
+                fd.as_raw_fd(),
+                0,
+            )
+        };
+        if ptr == libc::MAP_FAILED {
+            slf.send_format_table(fd, size);
+            return;
+        }
+
+        let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, size as usize) };
+        let mut new_table: Vec<u8> = Vec::new();
+        self.index_map = vec![None; num_entries];
+        let mut new_index: u16 = 0;
+
+        for i in 0..num_entries {
+            let base = i * 16;
+            let format = u32::from_ne_bytes(bytes[base..base + 4].try_into().unwrap());
+            let modifier = u64::from_ne_bytes(bytes[base + 8..base + 16].try_into().unwrap());
+            if self.allowed.contains(&(format, modifier)) {
+                self.index_map[i] = Some(new_index);
+                new_index = new_index.saturating_add(1);
+                new_table.extend_from_slice(&bytes[base..base + 16]);
+            }
+        }
+
+        unsafe { libc::munmap(ptr, size as usize) };
+
+        let memfd = unsafe {
+            libc::memfd_create(b"dmabuf-fb\0".as_ptr() as *const libc::c_char, 0)
+        };
+        if memfd < 0 {
+            return;
+        }
+        unsafe { libc::write(memfd, new_table.as_ptr() as *const libc::c_void, new_table.len()) };
+        let new_fd = Rc::new(unsafe { OwnedFd::from_raw_fd(memfd) });
+        slf.send_format_table(&new_fd, new_table.len() as u32);
+    }
+
+    fn handle_main_device(&mut self, slf: &Rc<ZwpLinuxDmabufFeedbackV1>, device: &[u8]) {
+        slf.send_main_device(device);
+    }
+
+    fn handle_tranche_target_device(
+        &mut self,
+        _slf: &Rc<ZwpLinuxDmabufFeedbackV1>,
+        device: &[u8],
+    ) {
+        self.pending_device = Some(device.to_vec());
+        self.pending_flags = None;
+        self.pending_formats.clear();
+    }
+
+    fn handle_tranche_flags(
+        &mut self,
+        _slf: &Rc<ZwpLinuxDmabufFeedbackV1>,
+        flags: ZwpLinuxDmabufFeedbackV1TrancheFlags,
+    ) {
+        self.pending_flags = Some(flags);
+    }
+
+    fn handle_tranche_formats(
+        &mut self,
+        _slf: &Rc<ZwpLinuxDmabufFeedbackV1>,
+        indices: &[u8],
+    ) {
+        for chunk in indices.chunks_exact(2) {
+            let old = u16::from_ne_bytes([chunk[0], chunk[1]]);
+            if let Some(Some(new)) = self.index_map.get(old as usize) {
+                self.pending_formats.push(*new);
+            }
+        }
+    }
+
+    fn handle_tranche_done(&mut self, slf: &Rc<ZwpLinuxDmabufFeedbackV1>) {
+        if self.pending_formats.is_empty() {
+            self.pending_device = None;
+            self.pending_flags = None;
+            return;
+        }
+        if let Some(device) = self.pending_device.take() {
+            slf.send_tranche_target_device(&device);
+        }
+        slf.send_tranche_flags(self.pending_flags.take().unwrap_or_default());
+        let bytes: Vec<u8> = self
+            .pending_formats
+            .drain(..)
+            .flat_map(|i| i.to_ne_bytes())
+            .collect();
+        slf.send_tranche_formats(&bytes);
+        slf.send_tranche_done();
+    }
+
+    fn handle_done(&mut self, slf: &Rc<ZwpLinuxDmabufFeedbackV1>) {
+        slf.send_done();
     }
 }
 
@@ -522,13 +646,9 @@ impl XdgSurfaceHandler for XdgSurfaceHandlerImpl {
             state: Rc::clone(&self.state),
         });
 
-        if id.version() >= XdgToplevel::MSG__CONFIGURE_BOUNDS__SINCE {
-            id.send_configure_bounds(1920, 1080);
-        }
+        id.send_configure_bounds(1, 1);
 
-        let (width, height) = *CURRENT_SIZE.lock().unwrap();
         let mut state = self.state.borrow_mut();
-        id.send_configure(width, height, &[]);
         let serial = state.configure_serial;
         state.configure_serial = serial.wrapping_add(1);
         slf.send_configure(serial);
@@ -568,8 +688,6 @@ impl ClientHandler for ClientHandlerImpl {
 }
 
 fn serve_client(socket: OwnedFd, upstream: String) {
-    // Pin the upstream explicitly: the builder would otherwise consume the
-    // WAYLAND_SOCKET env var that is reserved for mpv's own connection.
     let state = match State::builder(Baseline::ALL_OF_THEM)
         .with_server_display_name(&upstream)
         .build()
@@ -612,17 +730,19 @@ fn serve_client(socket: OwnedFd, upstream: String) {
         }
         if let Some((width, height)) = latest {
             *CURRENT_SIZE.lock().unwrap() = (width, height);
+
             shared.borrow_mut().configure_toplevels(width, height);
         }
     }
 }
 
-/// Spawns the proxy serving a private socketpair and returns the client end,
-/// meant to be handed to libwayland via `WAYLAND_SOCKET`. The proxy's upstream
-/// connection keeps following the untouched `WAYLAND_DISPLAY`.
-pub fn create_mpv_proxy() -> Option<OwnedFd> {
+pub fn create_mpv_proxy(format_pairs: Vec<(u32, u64)>) -> Option<OwnedFd> {
     let upstream = std::env::var("WAYLAND_DISPLAY").ok()?;
     let (client, server) = std::os::unix::net::UnixStream::pair().ok()?;
+
+    ALLOWED_FORMAT_PAIRS
+        .set(format_pairs.into_iter().collect())
+        .ok()?;
 
     std::thread::Builder::new()
         .name("wl-proxy-mpv".into())

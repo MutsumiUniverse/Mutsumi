@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::{ffi::CString, ops::Deref, sync::Arc};
 
 use super::*;
 use flume::{Receiver, Sender, unbounded};
@@ -107,9 +107,8 @@ impl Deref for SendMpv {
 impl Default for MpvActor {
     fn default() -> Self {
         Self::with_initializer(|mpv| {
-            _ = mpv.set_property("vo", "libmpv");
             _ = mpv.set_property("hwdec", "auto-safe");
-            _ = mpv.set_property("video-timing-offset", 0);
+            _ = mpv.set_property("keep-open", "yes");
             Ok(())
         })
         .expect("Failed to create mpv instance")
@@ -121,9 +120,15 @@ impl MpvActor {
     where
         F: FnOnce(libmpv2::MpvInitializer) -> libmpv2::Result<()>,
     {
-        let mut mpv = Mpv::with_initializer(initializer)?;
+        let mpv = Mpv::with_initializer(initializer)?;
 
         mpv.disable_deprecated_events()?;
+
+        let log_level = CString::new("v").unwrap();
+        unsafe {
+            libmpv2_sys::mpv_request_log_messages(mpv.ctx.as_ptr(), log_level.as_ptr());
+        }
+
         mpv.observe_property("duration", Format::Double, 0)?;
         mpv.observe_property("pause", Format::Flag, 1)?;
         mpv.observe_property("cache-speed", Format::Int64, 2)?;
@@ -137,10 +142,6 @@ impl MpvActor {
 
         let mpv = SendMpv(Arc::new(mpv));
 
-        // libmpv2 maps property-change events whose data is unavailable
-        // (format == NONE) to `None`, which is indistinguishable from an
-        // empty queue. Blocking in a dedicated thread instead of draining
-        // on wakeup callbacks makes that ambiguity harmless.
         let event_mpv = SendMpv(Arc::clone(&mpv.0));
         std::thread::Builder::new()
             .name("mpv event loop".into())
@@ -309,6 +310,13 @@ impl SendMpv {
                 Event::Shutdown => {
                     let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Shutdown);
                     return false;
+                }
+                Event::LogMessage { prefix, level, text, .. } => {
+                    match level {
+                        "warn" => tracing::warn!("mpv: {}: {}", prefix, text),
+                        "error" => tracing::error!("mpv: {}: {}", prefix, text),
+                        _ => tracing::info!("mpv: {}: {}", prefix, text),
+                    }
                 }
                 _ => {}
             },

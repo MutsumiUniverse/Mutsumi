@@ -1,10 +1,15 @@
+use std::path::Path;
+
 use glib::Object;
 use gtk::{glib, subclass::prelude::*};
 use tracing::info;
 
-use crate::video::{
-    backend::{TrackKind, TrackSelection},
-    mpv::contexted::ContextedMPV,
+use crate::{
+    PlayParams, PlaySource,
+    video::{
+        backend::{TrackKind, TrackSelection},
+        mpv::contexted::ContextedMPV,
+    },
 };
 
 use gtk::gdk;
@@ -67,15 +72,8 @@ mod imp {
 
                         match unsafe { builder.build_with_release_func(move || drop(frame)) } {
                             Ok(texture) => {
-                                let size_changed =
-                                    obj.imp().texture.borrow().as_ref().is_none_or(|old| {
-                                        (old.width(), old.height())
-                                            != (texture.width(), texture.height())
-                                    });
                                 obj.imp().texture.replace(Some(texture));
-                                if size_changed {
-                                    obj.invalidate_size();
-                                }
+
                                 obj.invalidate_contents();
                             }
                             Err(e) => {
@@ -124,7 +122,13 @@ mod imp {
 
     impl MutsumiVideoSink {
         fn setup_mpv(&self) {
-            let socket = create_mpv_proxy().expect("Failed to create Wayland proxy");
+            let display = gdk::Display::default().expect("Could not connect to display");
+            let formats = display.dmabuf_formats();
+            let format_pairs: Vec<(u32, u64)> = (0..formats.n_formats())
+                .map(|i| formats.format(i))
+                .collect();
+
+            let socket = create_mpv_proxy(format_pairs).expect("Failed to create Wayland proxy");
 
             unsafe { std::env::set_var("WAYLAND_SOCKET", socket.into_raw_fd().to_string()) };
 
@@ -157,8 +161,9 @@ impl MutsumiVideoSink {
         &self.imp().mpv
     }
 
-    pub fn play(&self, url: &str, percentage: f64) {
-        let url = url.to_owned();
+    pub fn play(&self, source: &PlayParams) {
+        let url = source.url().into_owned();
+        let start_time = source.start_time;
 
         glib::spawn_future_local(glib::clone!(
             #[weak(rename_to = obj)]
@@ -169,7 +174,10 @@ impl MutsumiVideoSink {
                 info!("Now Playing: {}", url);
                 mpv.load_video(&url);
 
-                mpv.set_start(percentage);
+                if let Some(start_time) = start_time {
+                    mpv.set_start_time(start_time);
+                }
+
                 mpv.pause(false);
             }
         ));
@@ -215,8 +223,8 @@ impl MutsumiVideoSink {
         self.mpv().set_percent_position(value);
     }
 
-    pub fn set_start(&self, percentage: f64) {
-        self.mpv().set_start(percentage);
+    pub fn set_start_time(&self, second: u64) {
+        self.mpv().set_start_time(second);
     }
 
     pub fn set_aid(&self, value: TrackSelection) {

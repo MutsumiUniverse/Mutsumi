@@ -1,11 +1,13 @@
+use std::path::Path;
+
 use glib::Object;
 use gtk::{gio, glib, subclass::prelude::*};
 use tracing::info;
 
-use crate::video::{
+use crate::{PlayParams, video::{
     backend::{TrackKind, TrackSelection},
     mpv::contexted::ContextedMPV,
-};
+}};
 
 use super::RENDER_UPDATE;
 
@@ -211,8 +213,9 @@ impl MPVGLArea {
         &self.imp().mpv
     }
 
-    pub fn play(&self, url: &str, percentage: f64) {
-        let url = url.to_owned();
+    pub fn play(&self, source: PlayParams) {
+        let url = source.url().into_owned();
+        let start_time = source.start_time;
 
         glib::spawn_future_local(glib::clone!(
             #[weak(rename_to = obj)]
@@ -223,7 +226,10 @@ impl MPVGLArea {
                 info!("Now Playing: {}", url);
                 mpv.load_video(&url);
 
-                mpv.set_start(percentage);
+                if let Some(start_time) = start_time {
+                    mpv.set_start_time(start_time);
+                }
+
                 mpv.pause(false);
             }
         ));
@@ -269,8 +275,8 @@ impl MPVGLArea {
         self.mpv().set_percent_position(value);
     }
 
-    pub fn set_start(&self, percentage: f64) {
-        self.mpv().set_start(percentage);
+    pub fn set_start(&self, second: u64) {
+        self.mpv().set_start_time(second);
     }
 
     pub fn set_aid(&self, value: TrackSelection) {

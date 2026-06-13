@@ -1,19 +1,32 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, Box as GtkBox, Button, Entry, Orientation};
-use mutsumi::video::{MutsumiVideoPlayer};
+use mutsumi::video::MutsumiVideoPlayer;
+use mutsumi::{PlayParams, PlaySource};
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
+
     gtk::init().expect("Failed to initialize GTK");
 
     let player = MutsumiVideoPlayer::new();
 
+    player.backend_ref().mpv().mpv.set_property("config", true);
     player.backend_ref().mpv().mpv.command("script-binding", &["stats/display-stats-toggle"]);
+    player.backend_ref().mpv().mpv.set_property(
+        "ytdl-raw-options",
+        "cookies-from-browser=firefox".to_string(),
+    );
+
     let player_clone = player.clone();
 
     glib::spawn_future_local(async move {
         glib::timeout_future(std::time::Duration::from_secs(2)).await;
-        player_clone.play("https://www.youtube.com/watch?v=Np9rzX6wPe4", 0.0);
+        player_clone.play(&PlayParams::new(PlaySource::new_for_url(
+            "https://www.youtube.com/watch?v=LIlZCmETvsY",
+        )));
     });
 
     let app = Application::builder()
@@ -25,7 +38,7 @@ fn main() {
     app.connect_activate(move |app| {
         let window = ApplicationWindow::builder()
             .application(app)
-            .title("mutsumi MPVGLArea example")
+            .title("wl-proxy embed mpv demo")
             .default_width(960)
             .default_height(540)
             .build();
@@ -61,7 +74,7 @@ fn main() {
                 eprintln!("Please enter a URL or file path to play.");
                 return;
             }
-            video_play.play(&url, 0.0);
+            video_play.play(&PlayParams::new(PlaySource::new_for_url(url.clone())));
             eprintln!("Play requested: {}", url);
         });
 

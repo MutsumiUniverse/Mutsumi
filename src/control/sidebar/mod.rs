@@ -205,8 +205,6 @@ impl ControlSidebar {
         self.insert_action_group("sidebar", Some(&action_group));
     }
 
-    /// Sync the playback speed row without echoing the value back to the
-    /// player (the row callback only fires when the value actually changes).
     pub fn set_playback_speed(&self, value: f64) {
         self.imp().playback_speed_adj.set_value(value);
     }

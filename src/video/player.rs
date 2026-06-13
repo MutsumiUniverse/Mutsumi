@@ -1,9 +1,9 @@
-use std::{cell::OnceCell, rc::Rc};
+use std::{cell::OnceCell, path::Path, rc::Rc};
 
 use glib::Object;
 use gtk::{gdk::ModifierType, glib, prelude::*, subclass::prelude::*};
 
-use crate::MutsumiVideoSink;
+use crate::{MutsumiVideoSink, PlayParams, PlaySource};
 
 use super::{
     MPVGLArea,
@@ -70,14 +70,15 @@ mod imp {
     }
 
     impl WidgetImpl for MutsumiVideoPlayer {
-        fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
-            self.parent_size_allocate(width, height, baseline);
-
+        fn snapshot(&self, snapshot: &gtk::Snapshot) {
             let factor = self.obj().scale_factor();
-            let size = (width * factor, height * factor);
+            let size = (self.obj().width() * factor, self.obj().height() * factor);
+
             if self.last_size.replace(size) != size {
                 let _ = SIZE_CHANNEL.tx.send(size);
             }
+
+            self.parent_snapshot(snapshot);
         }
     }
     impl BinImpl for MutsumiVideoPlayer {}
@@ -107,8 +108,8 @@ impl MutsumiVideoPlayer {
 }
 
 impl MutsumiVideoPlayer {
-    pub fn play(&self, url: &str, percentage: f64) {
-        self.backend_ref().play(url, percentage);
+    pub fn play(&self, source: &PlayParams) {
+        self.backend_ref().play(source);
     }
 
     pub fn shutdown(&self) {
@@ -143,8 +144,8 @@ impl MutsumiVideoPlayer {
         self.backend_ref().set_percent_position(value);
     }
 
-    pub fn set_start(&self, percentage: f64) {
-        self.backend_ref().set_start(percentage);
+    pub fn set_start_time(&self, second: u64) {
+        self.backend_ref().set_start_time(second);
     }
 
     pub fn set_volume(&self, value: i64) {
