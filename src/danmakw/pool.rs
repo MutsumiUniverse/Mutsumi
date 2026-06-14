@@ -110,6 +110,7 @@ impl Danmakw {
     }
 
     pub fn start_rendering(&self) {
+        self.start_clock();
         let id = self.add_tick_callback(Self::cb);
         self.imp().tick_callback_id.replace(Some(id));
     }
@@ -128,6 +129,31 @@ impl Danmakw {
         self.imp().pause_clock();
     }
 
+    pub fn set_paused(&self, paused: bool) {
+        if paused {
+            self.pause_clock();
+        } else {
+            self.start_clock();
+        }
+    }
+
+    pub fn update(&self, time_milis: f64) {
+        let imp = self.imp();
+        let width = self.width() as f32;
+        imp.renderer
+            .borrow_mut()
+            .update(&self.pango_context(), width, time_milis);
+    }
+
+    pub fn preroll_seek(&self, time_milis: f64) {
+        self.imp().clock.borrow_mut().as_mut().map(|c| c.seek(time_milis));
+        self.imp().renderer.borrow_mut().rebuild_visible_state_at(
+            &self.pango_context(),
+            self.width() as f32,
+            time_milis,
+        );
+    }
+
     fn cb(&self, _frame_clock: &FrameClock) -> glib::ControlFlow {
         let imp = self.imp();
         let width = self.width() as f32;
@@ -137,6 +163,8 @@ impl Danmakw {
         let Some(clock) = clock.as_ref() else {
             return glib::ControlFlow::Continue;
         };
+
+        tracing::info!("clock ms {}", clock.time_milis());
 
         imp.renderer
             .borrow_mut()

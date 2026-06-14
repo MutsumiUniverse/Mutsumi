@@ -30,8 +30,6 @@ libmpv2-sys = "4.0.1"
 pango = "0.22.6"
 pangocairo = "0.22"
 cairo-rs = "0.22"
-
-[dev-dependencies]
 quick-xml = { version = "0.40", features = ["serialize"] }
 
 [build-dependencies]

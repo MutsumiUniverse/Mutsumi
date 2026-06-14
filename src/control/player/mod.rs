@@ -1,8 +1,9 @@
 use adw::{prelude::*, subclass::prelude::*};
+use glib::spawn_future_local;
 use gtk::{Builder, CompositeTemplate, PopoverMenu, gdk::Rectangle, gio, glib};
 
 use crate::{
-    ChapterList, ListenEvent, MPV_EVENT_CHANNEL, MpvActor, MpvTrack, MpvTracks, MutsumiVideoPlayer, PlayParams, TrackKind, TrackSelection, control::{ControlSidebar, GlobalToast, MenuActions, VideoScale, VolumeBar, format_duration}
+    ChapterList, DanmakuTrack, ListenEvent, MPV_EVENT_CHANNEL, MpvActor, MpvTrack, MpvTracks, MutsumiVideoPlayer, PlayParams, TrackKind, TrackSelection, control::{ControlSidebar, GlobalToast, MenuActions, VideoScale, VolumeBar, format_duration}
 };
 
 /// Minimum interval between two pointer motion events that reveal the
@@ -20,8 +21,8 @@ mod imp {
 
     #[derive(Default, CompositeTemplate, glib::Properties)]
     #[template(resource = "/io/github/mutsumi/ui/player.ui")]
-    #[properties(wrapper_type = super::PlayerPage)]
-    pub struct PlayerPage {
+    #[properties(wrapper_type = super::MutsumiPlayer)]
+    pub struct MutsumiPlayer {
         #[property(get, set)]
         pub video_title: RefCell<String>,
         #[property(get, set)]
@@ -87,9 +88,9 @@ mod imp {
     }
 
     #[glib::object_subclass]
-    impl ObjectSubclass for PlayerPage {
-        const NAME: &'static str = "PlayerPage";
-        type Type = super::PlayerPage;
+    impl ObjectSubclass for MutsumiPlayer {
+        const NAME: &'static str = "MutsumiPlayer";
+        type Type = super::MutsumiPlayer;
         type ParentType = adw::Bin;
 
         fn class_init(klass: &mut Self::Class) {
@@ -139,7 +140,7 @@ mod imp {
     }
 
     #[glib::derived_properties]
-    impl ObjectImpl for PlayerPage {
+    impl ObjectImpl for MutsumiPlayer {
         fn constructed(&self) {
             self.parent_constructed();
 
@@ -147,6 +148,7 @@ mod imp {
 
             self.control_sidebar.set_player(Some(&self.video.get()));
             self.video_scale.set_player(Some(&self.video.get()));
+            self.video_scale.set_danmakw(Some(&self.danmakw.get()));
 
             obj.setup_context_menu();
 
@@ -169,10 +171,10 @@ mod imp {
         }
     }
 
-    impl WidgetImpl for PlayerPage {}
-    impl BinImpl for PlayerPage {}
+    impl WidgetImpl for MutsumiPlayer {}
+    impl BinImpl for MutsumiPlayer {}
 
-    impl PlayerPage {
+    impl MutsumiPlayer {
         fn set_fullscreened(&self, fullscreened: bool) {
             if fullscreened == self.fullscreened.get() {
                 return;
@@ -193,6 +195,7 @@ mod imp {
             }
             self.menu_actions.set_paused(paused);
             self.paused.set(paused);
+            self.danmakw.set_paused(paused);
         }
     }
 }
@@ -200,19 +203,19 @@ mod imp {
 glib::wrapper! {
     /// A self-contained video player widget: video output plus on-screen
     /// controls, context menu and an advanced settings sidebar.
-    pub struct PlayerPage(ObjectSubclass<imp::PlayerPage>)
+    pub struct MutsumiPlayer(ObjectSubclass<imp::MutsumiPlayer>)
         @extends gtk::Widget, adw::Bin,
         @implements gio::ActionGroup, gio::ActionMap, gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-impl Default for PlayerPage {
+impl Default for MutsumiPlayer {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[gtk::template_callbacks]
-impl PlayerPage {
+impl MutsumiPlayer {
     pub fn new() -> Self {
         glib::Object::new()
     }
@@ -341,6 +344,8 @@ impl PlayerPage {
 
     fn update_seeking(&self, seeking: bool) {
         self.imp().loading_box.set_visible(seeking);
+
+        self.imp().danmakw.set_paused(seeking);
     }
 
     fn on_cache_speed_update(&self, value: i64) {
@@ -412,7 +417,12 @@ impl PlayerPage {
             &imp.audio_listbox.get(),
             TrackKind::Audio,
         );
+
         self.bind_tracks(value.sub_tracks, &imp.sub_listbox.get(), TrackKind::Subtitle);
+
+        if let Some(danmaku_track) = value.danmaku_track {
+            self.bind_danmaku(danmaku_track);
+        }
     }
 
     fn bind_tracks(&self, tracks: Vec<MpvTrack>, listbox: &gtk::ListBox, kind: TrackKind) {
@@ -695,4 +705,38 @@ impl PlayerPage {
 
         surface.set_cursor(cursor.as_ref());
     }
+
+    pub fn bind_danmaku(&self, track: DanmakuTrack) {
+        let external_url = track.external_url.clone();
+
+        spawn_future_local(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            async move {
+                match fetch_url_content(&external_url).await {
+                    Ok(content) => {
+                        let Ok(danmaku) = crate::parse_bilibili_xml(&content) else {
+                            return;
+                        };
+                        obj.imp().danmakw.load_danmaku(danmaku);
+                        obj.imp().danmakw.start_rendering();
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to load danmaku from {}: {}", external_url, e);
+                        obj.toast(format!("Failed to load danmaku: {}", e));
+                    }
+                }
+            }
+        ));
+    }
+}
+
+async fn fetch_url_content(url: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let file = gio::File::for_uri(url);
+
+    let (content_bytes, _etag) = file.load_contents_future().await?;
+
+    let content = String::from_utf8(content_bytes.to_vec())?;
+
+    Ok(content)
 }

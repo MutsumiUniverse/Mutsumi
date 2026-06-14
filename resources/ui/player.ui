@@ -6,7 +6,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
 -->
 <interface>
   <requires lib="gtk" version="4.0"/>
-  <template class="PlayerPage" parent="AdwBin">
+  <template class="MutsumiPlayer" parent="AdwBin">
     <property name="focusable">true</property>
     <child>
       <object class="GtkEventControllerMotion">
@@ -138,7 +138,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                   <object class="GtkLabel" id="title_label">
                                     <property name="halign">1</property>
                                     <property name="ellipsize">2</property>
-                                    <property name="label" bind-source="PlayerPage" bind-property="video-title" bind-flags="sync-create"/>
+                                    <property name="label" bind-source="MutsumiPlayer" bind-property="video-title" bind-flags="sync-create"/>
                                     <style>
                                       <class name="heading"/>
                                     </style>
@@ -148,7 +148,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                   <object class="GtkLabel" id="subtitle_label">
                                     <property name="halign">1</property>
                                     <property name="ellipsize">2</property>
-                                    <property name="label" bind-source="PlayerPage" bind-property="video-subtitle" bind-flags="sync-create"/>
+                                    <property name="label" bind-source="MutsumiPlayer" bind-property="video-subtitle" bind-flags="sync-create"/>
                                     <style>
                                       <class name="dimmed"/>
                                       <class name="caption"/>
@@ -383,7 +383,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     </child>
                                     <child>
                                       <object class="GtkButton">
-                                        <property name="visible" bind-source="PlayerPage" bind-property="fullscreened" bind-flags="sync-create|invert-boolean"/>
+                                        <property name="visible" bind-source="MutsumiPlayer" bind-property="fullscreened" bind-flags="sync-create|invert-boolean"/>
                                         <property name="icon-name">view-fullscreen-symbolic</property>
                                         <property name="action-name">player.toggle-fullscreen</property>
                                         <property name="tooltip-text" translatable="yes">Fullscreen</property>
@@ -399,7 +399,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     </child>
                                     <child>
                                       <object class="GtkButton">
-                                        <property name="visible" bind-source="PlayerPage" bind-property="fullscreened" bind-flags="sync-create"/>
+                                        <property name="visible" bind-source="MutsumiPlayer" bind-property="fullscreened" bind-flags="sync-create"/>
                                         <property name="icon-name">view-restore-symbolic</property>
                                         <property name="action-name">player.toggle-fullscreen</property>
                                         <property name="valign">3</property>

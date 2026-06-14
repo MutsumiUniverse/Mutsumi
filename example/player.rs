@@ -1,7 +1,7 @@
 use adw::{glib, prelude::*};
-use mutsumi::{PlayParams, PlaySource, PlayerPage};
+use mutsumi::{PlayParams, PlaySource, MutsumiPlayer};
 
-const DEFAULT_URL: &str = "https://www.youtube.com/watch?v=agmPj7XV-Xw";
+const DEFAULT_URL: &str = "https://www.bilibili.com/video/BV1m9GE6wEPt";
 
 fn main() {
     tracing_subscriber::fmt()
@@ -17,7 +17,7 @@ fn main() {
     app.connect_activate(move |app| {
         mutsumi::init();
 
-        let player = PlayerPage::new();
+        let player = MutsumiPlayer::new();
 
         player.mpv().set_property(
             "ytdl-raw-options",

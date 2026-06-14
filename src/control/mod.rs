@@ -20,7 +20,7 @@ pub fn init() {
     gtk::gio::resources_register_include!("mutsumi.gresource")
         .expect("Failed to register resources.");
 
-    PlayerPage::ensure_type();
+    MutsumiPlayer::ensure_type();
     ControlSidebar::ensure_type();
     MenuActions::ensure_type();
     VideoScale::ensure_type();
