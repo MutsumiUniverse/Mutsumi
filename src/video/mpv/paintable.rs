@@ -1,4 +1,3 @@
-
 use glib::Object;
 use gtk::{glib, subclass::prelude::*};
 use tracing::info;

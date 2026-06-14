@@ -151,10 +151,9 @@ impl Danmakw {
     }
 
     pub fn preroll_seek(&self, time_milis: f64) {
-        if let Some(c) = self.imp()
-            .clock
-            .borrow_mut()
-            .as_mut() { c.seek(time_milis) }
+        if let Some(c) = self.imp().clock.borrow_mut().as_mut() {
+            c.seek(time_milis)
+        }
         self.imp().renderer.borrow_mut().rebuild_visible_state_at(
             &self.pango_context(),
             self.width() as f32,

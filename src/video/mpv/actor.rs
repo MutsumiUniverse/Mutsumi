@@ -94,7 +94,9 @@ pub struct MpvCtrl {
 }
 
 #[derive(Clone, Copy)]
-pub struct MpvActor;
+pub struct MpvActor {
+    _phantom: std::marker::PhantomData<()>,
+}
 
 impl Deref for SendMpv {
     type Target = Mpv;
@@ -106,6 +108,12 @@ impl Deref for SendMpv {
 
 impl Default for MpvActor {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MpvActor {
+    pub fn new() -> Self {
         Self::with_initializer(|mpv| {
             _ = mpv.set_option("input-default-bindings", "yes");
             _ = mpv.set_property("hwdec", "auto-safe");
@@ -114,9 +122,7 @@ impl Default for MpvActor {
         })
         .expect("Failed to create mpv instance")
     }
-}
 
-impl MpvActor {
     pub fn with_initializer<F>(initializer: F) -> libmpv2::Result<Self>
     where
         F: FnOnce(libmpv2::MpvInitializer) -> libmpv2::Result<()>,
@@ -179,7 +185,9 @@ impl MpvActor {
             }
         });
 
-        Ok(Self)
+        Ok(Self {
+            _phantom: std::marker::PhantomData,
+        })
     }
 
     pub fn set_property<V>(&self, property: &str, value: V)

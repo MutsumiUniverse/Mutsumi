@@ -32,8 +32,7 @@ pub struct CenterDanmaku {
     pub remaining_time: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum DanmakuMode {
     #[default]
     Scroll,
@@ -59,4 +58,3 @@ impl Default for Color {
         }
     }
 }
-

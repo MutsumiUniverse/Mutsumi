@@ -42,9 +42,10 @@ mod imp {
                 .into_iter()
                 .for_each(|collection| {
                     if let Ok(event) = collection
-                        && event.type_() == gtk::GestureClick::static_type() {
-                            gesture = event.downcast::<gtk::GestureClick>().unwrap();
-                        }
+                        && event.type_() == gtk::GestureClick::static_type()
+                    {
+                        gesture = event.downcast::<gtk::GestureClick>().unwrap();
+                    }
                 });
 
             gesture.connect_pressed(glib::clone!(

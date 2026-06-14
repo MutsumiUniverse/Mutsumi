@@ -1,4 +1,3 @@
-
 use glib::Object;
 use gtk::{gdk::ModifierType, glib, prelude::*, subclass::prelude::*};
 

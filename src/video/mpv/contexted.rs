@@ -26,7 +26,7 @@ impl Default for ContextedMPV {
                 .unwrap_or(std::ptr::null())
         });
 
-        let mpv = MpvActor;
+        let mpv = MpvActor::new();
 
         Self { mpv }
     }

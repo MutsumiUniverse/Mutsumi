@@ -1,4 +1,3 @@
-
 use glib::Object;
 use gtk::{gio, glib, subclass::prelude::*};
 use tracing::info;
@@ -24,7 +23,6 @@ mod imp {
     use super::*;
 
     use flume::bounded;
-    
 
     use gdk_x11::X11Display;
 

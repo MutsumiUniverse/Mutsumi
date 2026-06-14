@@ -1,6 +1,5 @@
 use std::{future::Future, pin::Pin};
 
-
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
