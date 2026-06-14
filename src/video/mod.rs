@@ -1,5 +1,4 @@
 mod backend;
-mod conf;
 mod error;
 mod mpv;
 mod play;

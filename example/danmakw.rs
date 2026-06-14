@@ -1,4 +1,4 @@
-use adw::{glib, prelude::*};
+use adw::prelude::*;
 use mutsumi::Danmakw;
 
 mod parse;

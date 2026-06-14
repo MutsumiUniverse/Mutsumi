@@ -290,18 +290,24 @@ impl SendMpv {
                     "paused-for-cache" => {
                         if let PropertyData::Flag(pause) = change {
                             let seeking = self.get_property::<bool>("seeking").unwrap_or(false);
+                            let time_millis =
+                                self.get_property::<f64>("audio-pts").unwrap_or(0.0) * 1000.0;
                             let _ = MPV_EVENT_CHANNEL
                                 .tx
-                                .send(ListenEvent::PausedForCache(pause || seeking));
+                                .send(ListenEvent::PausedForCache(pause || seeking, time_millis));
                         }
                     }
                     _ => {}
                 },
                 Event::Seek { .. } => {
-                    let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Seek);
+                    let time_millis = self.get_property::<f64>("audio-pts").unwrap_or(0.0) * 1000.0;
+                    let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Seek(time_millis));
                 }
                 Event::PlaybackRestart { .. } => {
-                    let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::PlaybackRestart);
+                    let time_millis = self.get_property::<f64>("audio-pts").unwrap_or(0.0) * 1000.0;
+                    let _ = MPV_EVENT_CHANNEL
+                        .tx
+                        .send(ListenEvent::PlaybackRestart(time_millis));
                 }
                 Event::EndFile(r) => {
                     let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Eof(r));

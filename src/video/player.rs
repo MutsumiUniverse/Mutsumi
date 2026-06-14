@@ -12,14 +12,14 @@ mod imp {
     use adw::subclass::prelude::*;
     use gtk::CssProvider;
 
-    use crate::{MutsumiVideoSink, SIZE_CHANNEL};
+    use crate::{MutsumiVideoSink, VIEWPORT_CHANNEL};
 
     use super::*;
     #[derive(Default, glib::Properties)]
     #[properties(wrapper_type = super::MutsumiVideoPlayer)]
     pub struct MutsumiVideoPlayer {
         pub backend: MutsumiVideoSink,
-        last_size: Cell<(i32, i32)>,
+        last_viewport: Cell<(i32, i32, f64)>,
     }
 
     #[glib::object_subclass]
@@ -66,11 +66,29 @@ mod imp {
 
     impl WidgetImpl for MutsumiVideoPlayer {
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
-            let factor = self.obj().scale_factor();
-            let size = (self.obj().width() * factor, self.obj().height() * factor);
+            let obj = self.obj();
 
-            if self.last_size.replace(size) != size {
-                let _ = SIZE_CHANNEL.tx.send(size);
+            let Some(native) = obj.native() else {
+                tracing::warn!(
+                    "Failed to get native from widget. Video may not display correctly."
+                );
+                self.parent_snapshot(snapshot);
+                return;
+            };
+
+            let Some(surface) = native.surface() else {
+                tracing::warn!(
+                    "Failed to get surface from native. Video may not display correctly."
+                );
+                self.parent_snapshot(snapshot);
+                return;
+            };
+
+            let scale = surface.scale();
+
+            let viewport = (obj.width(), obj.height(), scale);
+            if self.last_viewport.replace(viewport) != viewport {
+                let _ = VIEWPORT_CHANNEL.tx.send((viewport.0, viewport.1, scale));
             }
 
             self.parent_snapshot(snapshot);

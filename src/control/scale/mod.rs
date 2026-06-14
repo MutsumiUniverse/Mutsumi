@@ -4,7 +4,7 @@ use gtk::{glib, prelude::*, subclass::prelude::*};
 mod imp {
     use std::cell::Cell;
 
-    use crate::Danmakw;
+    
 
     use super::*;
 
@@ -13,9 +13,6 @@ mod imp {
     pub struct VideoScale {
         #[property(get, set = Self::set_player, explicit_notify, nullable)]
         pub player: glib::WeakRef<MutsumiVideoPlayer>,
-
-        #[property(get, set = Self::set_danmakw, explicit_notify, nullable)]
-        pub danmakw: glib::WeakRef<Danmakw>,
 
         pub dragging: Cell<bool>,
     }
@@ -79,25 +76,12 @@ mod imp {
             self.player.set(player.as_ref());
         }
 
-        fn set_danmakw(&self, danmakw: Option<Danmakw>) {
-            if self.danmakw.upgrade() == danmakw {
-                return;
-            }
-            self.danmakw.set(danmakw.as_ref());
-        }
-
         fn on_seek_finished(&self, value: f64) {
             let Some(player) = self.player.upgrade() else {
                 return;
             };
 
             player.set_position(value);
-
-            let Some(danmakw) = self.danmakw.upgrade() else {
-                return;
-            };
-
-            danmakw.preroll_seek(value * 1000.0);
         }
     }
 }

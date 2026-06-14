@@ -7,7 +7,7 @@ const CENTER_DURATION_MS: f32 = 5000.0;
 const RESET_DELTA_MS: f32 = 1000.0;
 const SEEK_PREROLL_STEP_MS: f64 = 50.0;
 
-const OUTLINE_PX: f64 = 0.0;
+const OUTLINE_PX: f64 = 1.0;
 const SHADOW_OFFSET: f64 = 1.5;
 
 fn make_texture(layout: &Layout, color: &Color) -> (gdk::MemoryTexture, f32) {

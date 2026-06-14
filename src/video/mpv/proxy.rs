@@ -11,6 +11,12 @@ use once_cell::sync::Lazy;
 
 use wl_proxy::protocols::{
     ObjectInterface,
+    fractional_scale_v1::{
+        wp_fractional_scale_manager_v1::{
+            WpFractionalScaleManagerV1, WpFractionalScaleManagerV1Handler,
+        },
+        wp_fractional_scale_v1::{WpFractionalScaleV1, WpFractionalScaleV1Handler},
+    },
     linux_dmabuf_v1::{
         zwp_linux_buffer_params_v1::{
             ZwpLinuxBufferParamsV1, ZwpLinuxBufferParamsV1Flags, ZwpLinuxBufferParamsV1Handler,
@@ -73,17 +79,17 @@ pub struct DmabufFrameChannel {
     pub rx: flume::Receiver<DmabufFrame>,
 }
 
-pub static SIZE_CHANNEL: Lazy<SizeChannel> = Lazy::new(|| {
-    let (tx, rx) = flume::unbounded::<(i32, i32)>();
-    SizeChannel { tx, rx }
+pub static VIEWPORT_CHANNEL: Lazy<ViewportChannel> = Lazy::new(|| {
+    let (tx, rx) = flume::unbounded::<(i32, i32, f64)>();
+    ViewportChannel { tx, rx }
 });
 
-pub struct SizeChannel {
-    pub tx: flume::Sender<(i32, i32)>,
-    pub rx: flume::Receiver<(i32, i32)>,
+pub struct ViewportChannel {
+    pub tx: flume::Sender<(i32, i32, f64)>,
+    pub rx: flume::Receiver<(i32, i32, f64)>,
 }
 
-static CURRENT_SIZE: Mutex<(i32, i32)> = Mutex::new((0, 0));
+static CURRENT_SCALE: Mutex<f64> = Mutex::new(1.0);
 
 struct StoredPlane {
     fd: OwnedFd,
@@ -92,7 +98,7 @@ struct StoredPlane {
 }
 
 struct BufferInfo {
-    buffer: Rc<WlBuffer>,
+    _buffer: Rc<WlBuffer>,
     planes: Vec<StoredPlane>,
     width: u32,
     height: u32,
@@ -134,6 +140,7 @@ struct SharedState {
     buffer_info: HashMap<u64, BufferInfo>,
     toplevels: Vec<ToplevelEntry>,
     configure_serial: u32,
+    fractional_scales: Vec<Rc<WpFractionalScaleV1>>,
 }
 
 impl SharedState {
@@ -142,6 +149,12 @@ impl SharedState {
             entry.toplevel.send_configure(width, height, &[]);
             entry.xdg_surface.send_configure(self.configure_serial);
             self.configure_serial = self.configure_serial.wrapping_add(1);
+        }
+    }
+
+    fn update_fractional_scales(&mut self, scale_120: u32) {
+        for s in &self.fractional_scales {
+            s.send_preferred_scale(scale_120);
         }
     }
 }
@@ -167,12 +180,15 @@ impl WlDisplayHandler for DisplayHandler {
             mapper.add_synthetic_global(registry, ObjectInterface::XdgWmBase, 4);
         let viewporter_client_name =
             mapper.add_synthetic_global(registry, ObjectInterface::WpViewporter, 1);
+        let fractional_scale_manager_client_name =
+            mapper.add_synthetic_global(registry, ObjectInterface::WpFractionalScaleManagerV1, 1);
 
         registry.set_handler(RegistryHandler {
             mapper,
             state: Rc::clone(&self.state),
             xdg_wm_base_client_name,
             viewporter_client_name,
+            fractional_scale_manager_client_name,
         });
     }
 }
@@ -182,6 +198,7 @@ struct RegistryHandler {
     state: Rc<RefCell<SharedState>>,
     xdg_wm_base_client_name: u32,
     viewporter_client_name: u32,
+    fractional_scale_manager_client_name: u32,
 }
 
 impl WlRegistryHandler for RegistryHandler {
@@ -192,7 +209,10 @@ impl WlRegistryHandler for RegistryHandler {
         interface: ObjectInterface,
         version: u32,
     ) {
-        if interface == ObjectInterface::XdgWmBase || interface == ObjectInterface::WpViewporter {
+        if interface == ObjectInterface::XdgWmBase
+            || interface == ObjectInterface::WpViewporter
+            || interface == ObjectInterface::WpFractionalScaleManagerV1
+        {
             self.mapper.ignore_global(name);
         } else if interface == ObjectInterface::ZwpLinuxDmabufV1 {
             self.mapper
@@ -217,6 +237,12 @@ impl WlRegistryHandler for RegistryHandler {
             let viewporter = id.downcast::<WpViewporter>();
             viewporter.set_forward_to_server(false);
             viewporter.set_handler(ViewporterHandler);
+        } else if name == self.fractional_scale_manager_client_name {
+            let manager = id.downcast::<WpFractionalScaleManagerV1>();
+            manager.set_forward_to_server(false);
+            manager.set_handler(FractionalScaleManagerHandler {
+                state: Rc::clone(&self.state),
+            });
         } else {
             let compositor = id.try_downcast::<WlCompositor>();
             let subcompositor = id.try_downcast::<WlSubcompositor>();
@@ -299,6 +325,48 @@ struct ViewportHandler;
 
 impl WpViewportHandler for ViewportHandler {
     fn handle_destroy(&mut self, slf: &Rc<WpViewport>) {
+        slf.delete_id();
+    }
+}
+
+struct FractionalScaleManagerHandler {
+    state: Rc<RefCell<SharedState>>,
+}
+
+impl WpFractionalScaleManagerV1Handler for FractionalScaleManagerHandler {
+    fn handle_destroy(&mut self, slf: &Rc<WpFractionalScaleManagerV1>) {
+        slf.delete_id();
+    }
+
+    fn handle_get_fractional_scale(
+        &mut self,
+        _slf: &Rc<WpFractionalScaleManagerV1>,
+        id: &Rc<WpFractionalScaleV1>,
+        _surface: &Rc<WlSurface>,
+    ) {
+        id.set_forward_to_server(false);
+        let scale_120 = (*CURRENT_SCALE.lock().unwrap() * 120.0).round() as u32;
+        id.send_preferred_scale(scale_120);
+        id.set_handler(FractionalScaleHandler {
+            state: Rc::clone(&self.state),
+        });
+        self.state
+            .borrow_mut()
+            .fractional_scales
+            .push(Rc::clone(id));
+    }
+}
+
+struct FractionalScaleHandler {
+    state: Rc<RefCell<SharedState>>,
+}
+
+impl WpFractionalScaleV1Handler for FractionalScaleHandler {
+    fn handle_destroy(&mut self, slf: &Rc<WpFractionalScaleV1>) {
+        self.state
+            .borrow_mut()
+            .fractional_scales
+            .retain(|s| !Rc::ptr_eq(s, slf));
         slf.delete_id();
     }
 }
@@ -585,7 +653,7 @@ impl ZwpLinuxBufferParamsV1Handler for BufferParamsHandler {
         });
 
         let info = BufferInfo {
-            buffer: Rc::clone(buffer_id),
+            _buffer: Rc::clone(buffer_id),
             planes: std::mem::take(&mut self.planes),
             width: width as u32,
             height: height as u32,
@@ -726,6 +794,7 @@ fn serve_client(socket: OwnedFd, upstream: String) {
         buffer_info: HashMap::new(),
         toplevels: Vec::new(),
         configure_serial: 1,
+        fractional_scales: Vec::new(),
     }));
     client.display().set_handler(DisplayHandler {
         state: Rc::clone(&shared),
@@ -738,13 +807,14 @@ fn serve_client(socket: OwnedFd, upstream: String) {
         }
 
         let mut latest = None;
-        while let Ok(size) = SIZE_CHANNEL.rx.try_recv() {
-            latest = Some(size);
+        while let Ok(viewport) = VIEWPORT_CHANNEL.rx.try_recv() {
+            latest = Some(viewport);
         }
-        if let Some((width, height)) = latest {
-            *CURRENT_SIZE.lock().unwrap() = (width, height);
-
+        if let Some((width, height, scale)) = latest {
             shared.borrow_mut().configure_toplevels(width, height);
+            *CURRENT_SCALE.lock().unwrap() = scale;
+            let scale_120 = (scale * 120.0).round() as u32;
+            shared.borrow_mut().update_fractional_scales(scale_120);
         }
     }
 }

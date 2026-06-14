@@ -13,9 +13,11 @@ pub use proxy::*;
 use flume::{Receiver, Sender, unbounded};
 use once_cell::sync::Lazy;
 
+type TimeMillis = f64;
+
 pub enum ListenEvent {
-    Seek,
-    PlaybackRestart,
+    Seek(TimeMillis),
+    PlaybackRestart(TimeMillis),
     Eof(u32),
     StartFile,
     Duration(f64),
@@ -28,7 +30,7 @@ pub enum ListenEvent {
     Shutdown,
     DemuxerCacheTime(i64),
     TimePos(i64),
-    PausedForCache(bool),
+    PausedForCache(bool, TimeMillis),
     ChapterList(ChapterList),
 }
 

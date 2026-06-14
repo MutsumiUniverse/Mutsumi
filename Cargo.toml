@@ -48,6 +48,7 @@ wl-proxy = { version = "0.1", features = [
   "protocol-linux_dmabuf_v1",
   "protocol-xdg_shell",
   "protocol-viewporter",
+  "protocol-fractional_scale_v1",
 ] }
 
 [[example]]

@@ -150,7 +150,6 @@ mod imp {
 
             self.control_sidebar.set_player(Some(&self.video.get()));
             self.video_scale.set_player(Some(&self.video.get()));
-            self.video_scale.set_danmakw(Some(&self.danmakw.get()));
 
             obj.setup_context_menu();
 
@@ -285,17 +284,19 @@ impl MutsumiPlayer {
                         ListenEvent::Duration(value) => {
                             obj.update_duration(value);
                         }
-                        ListenEvent::PausedForCache(true) | ListenEvent::Seek => {
-                            obj.update_seeking(true);
+                        ListenEvent::PausedForCache(true, time_millis)
+                        | ListenEvent::Seek(time_millis) => {
+                            obj.update_seeking(true, time_millis);
                         }
-                        ListenEvent::PausedForCache(false) | ListenEvent::PlaybackRestart => {
-                            obj.update_seeking(false);
+                        ListenEvent::PausedForCache(false, time_millis)
+                        | ListenEvent::PlaybackRestart(time_millis) => {
+                            obj.update_seeking(false, time_millis);
                         }
                         ListenEvent::StartFile => {
                             obj.on_start_file();
                         }
                         ListenEvent::Eof(_) => {
-                            obj.update_seeking(false);
+                            obj.update_seeking(false, 0.0);
                         }
                         ListenEvent::Error(value) => {
                             obj.toast(value);
@@ -335,7 +336,7 @@ impl MutsumiPlayer {
 
     fn on_start_file(&self) {
         self.imp().video_scale.reset_scale();
-        self.update_seeking(true);
+        self.update_seeking(true, 0.0);
     }
 
     fn update_duration(&self, value: f64) {
@@ -348,15 +349,18 @@ impl MutsumiPlayer {
         imp.duration_label.set_text(&duration);
     }
 
-    fn update_seeking(&self, seeking: bool) {
+    fn update_seeking(&self, seeking: bool, time_millis: f64) {
         self.imp().loading_box.set_visible(seeking);
 
         if self.paused() {
-            self.queue_draw();
             return;
         }
 
         self.imp().danmakw.set_paused(seeking);
+
+        if !seeking {
+            self.imp().danmakw.preroll_seek(time_millis);
+        }
     }
 
     fn on_cache_speed_update(&self, value: i64) {
