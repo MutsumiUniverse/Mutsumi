@@ -1,18 +1,18 @@
-mod pool;
-mod timer;
-mod layout;
-mod danmaku;
 mod alloc;
-mod render;
+mod danmaku;
+mod layout;
 mod parse;
+mod pool;
+mod render;
+mod timer;
 
-pub use pool::*;
-pub use layout::*;
-pub use timer::*;
 pub use alloc::*;
 pub use danmaku::*;
-pub use render::*;
+pub use layout::*;
 pub use parse::*;
+pub use pool::*;
+pub use render::*;
+pub use timer::*;
 
 use gtk::prelude::*;
 

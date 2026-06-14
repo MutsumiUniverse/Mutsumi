@@ -1,12 +1,5 @@
-use crate::{
-    Color,
-    Danmaku,
-    DanmakuMode,
-};
-use quick_xml::{
-    Reader,
-    events::Event,
-};
+use crate::{Color, Danmaku, DanmakuMode};
+use quick_xml::{Reader, events::Event};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

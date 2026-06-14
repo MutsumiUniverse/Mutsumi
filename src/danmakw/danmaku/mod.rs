@@ -33,7 +33,9 @@ pub struct CenterDanmaku {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 pub enum DanmakuMode {
+    #[default]
     Scroll,
     TopCenter,
     BottomCenter,
@@ -49,12 +51,12 @@ pub struct Color {
 
 impl Default for Color {
     fn default() -> Self {
-        Self { r: 255, g: 255, b: 255, a: 255 }
+        Self {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        }
     }
 }
 
-impl Default for DanmakuMode {
-    fn default() -> Self {
-        Self::Scroll
-    }
-}

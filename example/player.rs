@@ -1,5 +1,5 @@
 use adw::{glib, prelude::*};
-use mutsumi::{PlayParams, PlaySource, MutsumiPlayer};
+use mutsumi::{MutsumiPlayer, PlayParams, PlaySource};
 
 const DEFAULT_URL: &str = "https://www.bilibili.com/video/BV1m9GE6wEPt";
 
@@ -8,7 +8,9 @@ fn main() {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    let url = std::env::args().nth(1).unwrap_or_else(|| DEFAULT_URL.to_string());
+    let url = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| DEFAULT_URL.to_string());
 
     let app = adw::Application::builder()
         .application_id("io.github.mutsumi.example.player")

@@ -703,11 +703,10 @@ impl MutsumiPlayer {
         let x = imp.x.get();
         let y = imp.y.get();
 
-        if let Some(widget) = self.pick(x, y, gtk::PickFlags::DEFAULT) {
-            if widget.downcast_ref::<crate::Danmakw>().is_none() {
+        if let Some(widget) = self.pick(x, y, gtk::PickFlags::DEFAULT)
+            && widget.downcast_ref::<crate::Danmakw>().is_none() {
                 return false;
             }
-        }
 
         if self.shortcuts_dialog_is_presented() {
             return false;

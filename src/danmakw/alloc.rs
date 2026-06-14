@@ -49,7 +49,13 @@ fn make_texture(layout: &Layout, color: &Color) -> (gdk::MemoryTexture, f32) {
     let tex = {
         let data = surface.data().expect("Failed to get cairo surface data???");
         let bytes = glib::Bytes::from(&*data);
-        gdk::MemoryTexture::new(w, h, gdk::MemoryFormat::B8g8r8a8Premultiplied, &bytes, stride)
+        gdk::MemoryTexture::new(
+            w,
+            h,
+            gdk::MemoryFormat::B8g8r8a8Premultiplied,
+            &bytes,
+            stride,
+        )
     };
     (tex, OUTLINE_PX as f32)
 }
@@ -87,9 +93,7 @@ impl Default for DanmakwRenderer {
 }
 
 impl DanmakwRenderer {
-    pub fn new(
-        scale_factor: f64,
-    ) -> Self {
+    pub fn new(scale_factor: f64) -> Self {
         let scroll_max_rows = 20;
         let top_center_max_rows = 10;
         let bottom_center_max_rows = 10;
@@ -124,9 +128,7 @@ impl DanmakwRenderer {
         }
     }
 
-    pub fn add_scroll_danmaku(
-        &mut self, layout: Layout, width: f32, danmaku: Danmaku,
-    ) {
+    pub fn add_scroll_danmaku(&mut self, layout: Layout, width: f32, danmaku: Danmaku) {
         let text_width = layout.pixel_size().0 as f32;
 
         let velocity_x = -(width + text_width) / SCROLL_DURATION_MS * self.speed_factor as f32;
@@ -176,9 +178,7 @@ impl DanmakwRenderer {
         });
     }
 
-    pub fn add_topcenter_danmaku(
-        &mut self, layout: Layout, danmaku: Danmaku,
-    ) {
+    pub fn add_topcenter_danmaku(&mut self, layout: Layout, danmaku: Danmaku) {
         let text_width = layout.pixel_size().0 as f32;
 
         let Some(target_row) = self
@@ -202,9 +202,7 @@ impl DanmakwRenderer {
         });
     }
 
-    pub fn add_bottomcenter_danmaku(
-        &mut self, layout: Layout, danmaku: Danmaku,
-    ) {
+    pub fn add_bottomcenter_danmaku(&mut self, layout: Layout, danmaku: Danmaku) {
         let text_width = layout.pixel_size().0 as f32;
 
         let Some(target_row) = self
@@ -228,7 +226,12 @@ impl DanmakwRenderer {
         });
     }
 
-    pub fn rebuild_visible_state_at(&mut self, context: &Context, screen_width: f32, time_milis: f64) {
+    pub fn rebuild_visible_state_at(
+        &mut self,
+        context: &Context,
+        screen_width: f32,
+        time_milis: f64,
+    ) {
         let preroll_ms = SCROLL_DURATION_MS.max(CENTER_DURATION_MS) as f64;
         let start_time = (time_milis - preroll_ms).max(0.0);
 
@@ -307,7 +310,6 @@ impl DanmakwRenderer {
         font_desc.set_family(&self.font_name);
         layout.set_font_description(Some(&font_desc));
         layout.set_text(&danmaku.content);
-
 
         match danmaku.mode {
             DanmakuMode::Scroll => {

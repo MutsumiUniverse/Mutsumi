@@ -1,7 +1,4 @@
-use super::{
-    Danmaku,
-    sort::SortByTime,
-};
+use super::{Danmaku, sort::SortByTime};
 
 pub struct DanmakuQueue {
     now_queue: Vec<Danmaku>,

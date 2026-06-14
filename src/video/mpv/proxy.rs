@@ -3,7 +3,7 @@ use std::{
     collections::{HashMap, HashSet},
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     rc::Rc,
-    sync::{Mutex, Once, OnceLock},
+    sync::{Mutex, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -356,7 +356,7 @@ struct DmabufHandler {
 impl ZwpLinuxDmabufV1Handler for DmabufHandler {
     fn handle_format(&mut self, slf: &Rc<ZwpLinuxDmabufV1>, format: u32) {
         let allowed = ALLOWED_FORMAT_PAIRS.get();
-        if allowed.map_or(false, |pairs| pairs.iter().any(|(f, _)| *f == format)) {
+        if allowed.is_some_and(|pairs| pairs.iter().any(|(f, _)| *f == format)) {
             slf.send_format(format);
         }
     }
@@ -370,7 +370,7 @@ impl ZwpLinuxDmabufV1Handler for DmabufHandler {
     ) {
         let modifier = ((modifier_hi as u64) << 32) | (modifier_lo as u64);
         let allowed = ALLOWED_FORMAT_PAIRS.get();
-        if allowed.map_or(false, |pairs| pairs.contains(&(format, modifier))) {
+        if allowed.is_some_and(|pairs| pairs.contains(&(format, modifier))) {
             slf.send_modifier(format, modifier_hi, modifier_lo);
         }
     }
@@ -471,13 +471,18 @@ impl ZwpLinuxDmabufFeedbackV1Handler for FeedbackHandler {
 
         unsafe { libc::munmap(ptr, size as usize) };
 
-        let memfd = unsafe {
-            libc::memfd_create(b"dmabuf-fb\0".as_ptr() as *const libc::c_char, 0)
-        };
+        let memfd =
+            unsafe { libc::memfd_create(b"dmabuf-fb\0".as_ptr() as *const libc::c_char, 0) };
         if memfd < 0 {
             return;
         }
-        unsafe { libc::write(memfd, new_table.as_ptr() as *const libc::c_void, new_table.len()) };
+        unsafe {
+            libc::write(
+                memfd,
+                new_table.as_ptr() as *const libc::c_void,
+                new_table.len(),
+            )
+        };
         let new_fd = Rc::new(unsafe { OwnedFd::from_raw_fd(memfd) });
         slf.send_format_table(&new_fd, new_table.len() as u32);
     }
@@ -486,11 +491,7 @@ impl ZwpLinuxDmabufFeedbackV1Handler for FeedbackHandler {
         slf.send_main_device(device);
     }
 
-    fn handle_tranche_target_device(
-        &mut self,
-        _slf: &Rc<ZwpLinuxDmabufFeedbackV1>,
-        device: &[u8],
-    ) {
+    fn handle_tranche_target_device(&mut self, _slf: &Rc<ZwpLinuxDmabufFeedbackV1>, device: &[u8]) {
         self.pending_device = Some(device.to_vec());
         self.pending_flags = None;
         self.pending_formats.clear();
@@ -504,11 +505,7 @@ impl ZwpLinuxDmabufFeedbackV1Handler for FeedbackHandler {
         self.pending_flags = Some(flags);
     }
 
-    fn handle_tranche_formats(
-        &mut self,
-        _slf: &Rc<ZwpLinuxDmabufFeedbackV1>,
-        indices: &[u8],
-    ) {
+    fn handle_tranche_formats(&mut self, _slf: &Rc<ZwpLinuxDmabufFeedbackV1>, indices: &[u8]) {
         for chunk in indices.chunks_exact(2) {
             let old = u16::from_ne_bytes([chunk[0], chunk[1]]);
             if let Some(Some(new)) = self.index_map.get(old as usize) {

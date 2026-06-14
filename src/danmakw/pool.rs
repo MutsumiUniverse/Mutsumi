@@ -78,6 +78,12 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
+impl Default for Danmakw {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Danmakw {
     pub fn new() -> Self {
         glib::Object::new()
@@ -102,9 +108,7 @@ impl Danmakw {
     }
 
     pub fn load_danmaku(&self, danmaku: Vec<Danmaku>) {
-        let mut renderer = self.imp()
-            .renderer
-            .borrow_mut();
+        let mut renderer = self.imp().renderer.borrow_mut();
         renderer.danmaku_queue.init(danmaku, 0.0);
         renderer.clear_danmaku();
     }
@@ -147,7 +151,10 @@ impl Danmakw {
     }
 
     pub fn preroll_seek(&self, time_milis: f64) {
-        self.imp().clock.borrow_mut().as_mut().map(|c| c.seek(time_milis));
+        if let Some(c) = self.imp()
+            .clock
+            .borrow_mut()
+            .as_mut() { c.seek(time_milis) }
         self.imp().renderer.borrow_mut().rebuild_visible_state_at(
             &self.pango_context(),
             self.width() as f32,

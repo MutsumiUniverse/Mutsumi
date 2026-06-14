@@ -1,27 +1,30 @@
-use std::path::Path;
 
 use glib::Object;
 use gtk::{gio, glib, subclass::prelude::*};
 use tracing::info;
 
-use crate::{PlayParams, video::{
-    backend::{TrackKind, TrackSelection},
-    mpv::contexted::ContextedMPV,
-}};
+use crate::{
+    PlayParams,
+    video::{
+        backend::{TrackKind, TrackSelection},
+        mpv::contexted::ContextedMPV,
+    },
+};
 
 use super::RENDER_UPDATE;
 
 mod imp {
-    use crate::video::{
-        MPV_CTRL, MpvMessage, MutsumiMpvError, mpv::contexted::ContextedMPV,
-    };
-    use std::{ffi::c_void, sync::{Arc, OnceLock}};
+    use crate::video::{MPV_CTRL, MpvMessage, MutsumiMpvError, mpv::contexted::ContextedMPV};
     use libmpv2::Mpv;
+    use std::{
+        ffi::c_void,
+        sync::{Arc, OnceLock},
+    };
 
     use super::*;
 
     use flume::bounded;
-    use gdk_wayland::{WaylandDisplay, wayland_client::Proxy};
+    
 
     use gdk_x11::X11Display;
 

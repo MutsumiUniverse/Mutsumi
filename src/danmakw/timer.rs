@@ -70,10 +70,7 @@ impl DanmakuClock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        thread::sleep,
-        time::Duration,
-    };
+    use std::{thread::sleep, time::Duration};
 
     const TOL_MS: f64 = 60.0;
 

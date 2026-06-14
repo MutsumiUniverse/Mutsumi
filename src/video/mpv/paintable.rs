@@ -1,11 +1,10 @@
-use std::path::Path;
 
 use glib::Object;
 use gtk::{glib, subclass::prelude::*};
 use tracing::info;
 
 use crate::{
-    PlayParams, PlaySource,
+    PlayParams,
     video::{
         backend::{TrackKind, TrackSelection},
         mpv::contexted::ContextedMPV,
@@ -124,8 +123,22 @@ mod imp {
         fn setup_mpv(&self) {
             let display = gdk::Display::default().expect("Could not connect to display");
             let formats = display.dmabuf_formats();
+
+            // GTK < 4.24 has no memory-format mapping for 10-bit packed RGB
+            // formats (AR30/XR30/AB30/XB30 = *RGB/*BGR 2101010), but the host
+            // compositor may still advertise them in dmabuf_formats().
+            // See https://gitlab.gnome.org/GNOME/gtk/-/issues/8148
+            const PACKED_10BIT: &[u32] = &[
+                0x30335241, // DRM_FORMAT_ARGB2101010 (AR30)
+                0x30335258, // DRM_FORMAT_XRGB2101010 (XR30)
+                0x30334241, // DRM_FORMAT_ABGR2101010 (AB30)
+                0x30334258, // DRM_FORMAT_XBGR2101010 (XB30)
+            ];
+            let skip_packed_10bit = gtk::minor_version() < 24;
+
             let format_pairs: Vec<(u32, u64)> = (0..formats.n_formats())
                 .map(|i| formats.format(i))
+                .filter(|(fourcc, _)| !skip_packed_10bit || !PACKED_10BIT.contains(fourcc))
                 .collect();
 
             let socket = create_mpv_proxy(format_pairs).expect("Failed to create Wayland proxy");

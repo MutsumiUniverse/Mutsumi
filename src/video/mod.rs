@@ -8,5 +8,5 @@ mod player;
 pub use backend::*;
 pub use error::*;
 pub use mpv::*;
-pub use player::*;
 pub use play::*;
+pub use player::*;

@@ -160,7 +160,7 @@ fn check_duplicate_ui_outputs(project_root: &Path, inputs: &[PathBuf]) {
 fn cleanup_generated_ui_files(project_root: &Path, inputs: &[PathBuf]) {
     let ui_dir = project_root.join("resources/ui");
 
-    let expected: BTreeSet<PathBuf> = inputs
+    let _expected: BTreeSet<PathBuf> = inputs
         .iter()
         .map(|input| output_ui_path(project_root, input))
         .collect();

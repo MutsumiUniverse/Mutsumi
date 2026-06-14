@@ -1,4 +1,4 @@
-use std::{ffi::CString, ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
 use super::*;
 use flume::{Receiver, Sender, unbounded};
@@ -453,7 +453,9 @@ fn node_to_tracks(value: &str) -> MpvTracks {
                 .unwrap_or("")
                 .to_string();
 
-            let Some(external) = external_filename.strip_prefix("edl://!no_clip;!delay_open,media_type=sub;%44%") else {
+            let Some(external) =
+                external_filename.strip_prefix("edl://!no_clip;!delay_open,media_type=sub;%44%")
+            else {
                 continue;
             };
 

@@ -1,21 +1,17 @@
-use std::{cell::OnceCell, path::Path, rc::Rc};
 
 use glib::Object;
 use gtk::{gdk::ModifierType, glib, prelude::*, subclass::prelude::*};
 
-use crate::{MutsumiVideoSink, PlayParams, PlaySource};
+use crate::{MutsumiVideoSink, PlayParams};
 
-use super::{
-    MPVGLArea,
-    backend::{BoxedFuture, TrackKind, TrackSelection},
-};
+use super::backend::{BoxedFuture, TrackKind, TrackSelection};
 
 mod imp {
     use std::cell::Cell;
 
     use adw::prelude::*;
     use adw::subclass::prelude::*;
-    use gtk::{CssProvider, prelude::*};
+    use gtk::CssProvider;
 
     use crate::{MutsumiVideoSink, SIZE_CHANNEL};
 

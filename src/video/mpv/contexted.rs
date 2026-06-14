@@ -26,7 +26,7 @@ impl Default for ContextedMPV {
                 .unwrap_or(std::ptr::null())
         });
 
-        let mpv = MpvActor::default();
+        let mpv = MpvActor;
 
         Self { mpv }
     }
@@ -113,8 +113,7 @@ impl ContextedMPV {
     }
 
     pub fn set_start_time(&self, second: u64) {
-        self.mpv
-            .set_property("start", format!("{}", second));
+        self.mpv.set_property("start", format!("{}", second));
     }
 
     pub fn set_volume(&self, volume: i64) {

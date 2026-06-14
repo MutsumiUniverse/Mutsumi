@@ -14,7 +14,11 @@ fn main() {
     let player = MutsumiVideoPlayer::new();
 
     player.backend_ref().mpv().mpv.set_property("config", true);
-    player.backend_ref().mpv().mpv.command("script-binding", &["stats/display-stats-toggle"]);
+    player
+        .backend_ref()
+        .mpv()
+        .mpv
+        .command("script-binding", &["stats/display-stats-toggle"]);
     player.backend_ref().mpv().mpv.set_property(
         "ytdl-raw-options",
         "cookies-from-browser=firefox".to_string(),
