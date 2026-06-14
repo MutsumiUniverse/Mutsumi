@@ -64,6 +64,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                   </object>
                 </child>
                 <child type="overlay">
+                  <object class="Danmakw" id="danmakw">
+                    <property name="hexpand">true</property>
+                    <property name="vexpand">true</property>
+                  </object>
+                </child>
+                <child type="overlay">
                   <object class="VolumeBar" id="volume_bar">
                     <property name="halign">start</property>
                     <property name="valign">center</property>

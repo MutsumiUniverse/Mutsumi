@@ -1,36 +1,33 @@
-use crate::LayoutExt;
+use crate::{Color, Danmaku, DanmakuMode};
 use gtk::{gdk::FrameClock, glib, prelude::*, subclass::prelude::*};
-use std::cell::RefCell;
-
-pub struct Danmaku {
-    layout: pango::Layout,
-    x: f32,
-    y: f32,
-}
-
-impl Danmaku {
-    pub fn context_x(&self, width: f32) -> f32 {
-        width - self.x
-    }
-
-    pub fn dx_per_millis(&self, width: f32) -> f32 {
-        self.layout.dx_per_millis(width)
-    }
-}
+use std::cell::{Cell, RefCell};
 
 mod imp {
-    use crate::DanmakuClock;
+    use crate::{DanmakuClock, DanmakwRenderer, DanmakwSnapshotExt};
 
     use super::*;
     use gtk::TickCallbackId;
-    use pango::FontDescription;
 
-    #[derive(Default)]
+    #[derive(glib::Properties)]
+    #[properties(wrapper_type = super::Danmakw)]
     pub struct Danmakw {
-        pub danmakus: RefCell<Vec<Danmaku>>,
-        pub timer: RefCell<DanmakuClock>,
+        #[property(get, set, default_value = 1.0)]
+        pub speed_factor: Cell<f32>,
 
+        pub renderer: RefCell<DanmakwRenderer>,
+        pub clock: RefCell<Option<DanmakuClock>>,
         pub tick_callback_id: RefCell<Option<TickCallbackId>>,
+    }
+
+    impl Default for Danmakw {
+        fn default() -> Self {
+            Self {
+                speed_factor: Cell::new(1.0),
+                renderer: Default::default(),
+                clock: Default::default(),
+                tick_callback_id: Default::default(),
+            }
+        }
     }
 
     #[glib::object_subclass]
@@ -40,48 +37,37 @@ mod imp {
         type ParentType = gtk::Widget;
     }
 
+    #[glib::derived_properties]
     impl ObjectImpl for Danmakw {
         fn constructed(&self) {
             self.parent_constructed();
-            let obj = self.obj();
-
-            obj.add_tick_callback(super::Danmakw::cb);
         }
     }
 
     impl WidgetImpl for Danmakw {
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
-            let danmakus = self.danmakus.borrow();
-
-            let width = self.obj().width() as f32;
-
-            for d in danmakus.iter() {
-                snapshot.save();
-                let x = d.context_x(width);
-                snapshot.translate(&gtk::graphene::Point::new(x, d.y));
-                snapshot.append_layout(&d.layout, &gtk::gdk::RGBA::WHITE);
-                snapshot.restore();
-            }
+            let obj = self.obj();
+            let width = obj.width() as f32;
+            let height = obj.height() as f32;
+            let mut renderer = self.renderer.borrow_mut();
+            snapshot.render_danmakw(&mut renderer, width, height);
         }
     }
 
     impl Danmakw {
-        pub fn add_danmaku(&self, context: pango::Context, text: &str) {
-            let layout = pango::Layout::new(&context);
+        pub fn start_clock(&self) {
+            let mut clock = self.clock.borrow_mut();
+            if let Some(c) = clock.as_mut() {
+                c.resume();
+            } else {
+                *clock = Some(DanmakuClock::new(self.obj().speed_factor() as f64));
+            }
+        }
 
-            let mut font_desc = FontDescription::default();
-            font_desc.set_size(32 * pango::SCALE);
-
-            layout.set_font_description(Some(&font_desc));
-            layout.set_text(text);
-
-            let width = self.obj().width() as f32;
-
-            self.danmakus.borrow_mut().push(Danmaku {
-                layout,
-                x: 0.0,
-                y: 0.0,
-            });
+        pub fn pause_clock(&self) {
+            if let Some(clock) = self.clock.borrow_mut().as_mut() {
+                clock.pause();
+            }
         }
     }
 }
@@ -98,13 +84,34 @@ impl Danmakw {
     }
 
     pub fn add_danmaku(&self, text: &str) {
-        self.imp().add_danmaku(self.pango_context(), text);
+        self.add_danmaku_full(text, Color::default(), DanmakuMode::Scroll);
+    }
+
+    pub fn add_danmaku_full(&self, text: &str, color: Color, mode: DanmakuMode) {
+        let width = self.width() as f32;
+        let danmaku = Danmaku {
+            content: text.to_string(),
+            start: 0.0,
+            color,
+            mode,
+        };
+        self.imp()
+            .renderer
+            .borrow_mut()
+            .add_danmaku(&self.pango_context(), width, danmaku);
+    }
+
+    pub fn load_danmaku(&self, danmaku: Vec<Danmaku>) {
+        self.imp()
+            .renderer
+            .borrow_mut()
+            .danmaku_queue
+            .init(danmaku, 0.0);
     }
 
     pub fn start_rendering(&self) {
-        self.imp()
-            .tick_callback_id
-            .replace(Some(self.add_tick_callback(Self::cb)));
+        let id = self.add_tick_callback(Self::cb);
+        self.imp().tick_callback_id.replace(Some(id));
     }
 
     pub fn stop_rendering(&self) {
@@ -113,14 +120,27 @@ impl Danmakw {
         }
     }
 
-    fn cb(&self, clock: &FrameClock) -> glib::ControlFlow {
+    pub fn start_clock(&self) {
+        self.imp().start_clock();
+    }
+
+    pub fn pause_clock(&self) {
+        self.imp().pause_clock();
+    }
+
+    fn cb(&self, _frame_clock: &FrameClock) -> glib::ControlFlow {
         let imp = self.imp();
-        let mut danmakus = imp.danmakus.borrow_mut();
         let width = self.width() as f32;
 
-        for d in danmakus.iter_mut() {
-            d.x += d.dx_per_millis(width)
-        }
+        let clock = imp.clock.borrow();
+
+        let Some(clock) = clock.as_ref() else {
+            return glib::ControlFlow::Continue;
+        };
+
+        imp.renderer
+            .borrow_mut()
+            .update(&self.pango_context(), width, clock.time_milis());
 
         self.queue_draw();
         glib::ControlFlow::Continue

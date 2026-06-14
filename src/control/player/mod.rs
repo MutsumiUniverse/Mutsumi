@@ -72,6 +72,9 @@ mod imp {
         #[template_child]
         pub audio_listbox: TemplateChild<gtk::ListBox>,
 
+        #[template_child]
+        pub danmakw: TemplateChild<crate::Danmakw>,
+
         pub menu_actions: MenuActions,
         pub context_popover: RefCell<Option<PopoverMenu>>,
 
@@ -663,10 +666,8 @@ impl PlayerPage {
         let x = imp.x.get();
         let y = imp.y.get();
 
-
-
         if let Some(widget) = self.pick(x, y, gtk::PickFlags::DEFAULT) {
-            if widget.downcast_ref::<gtk::Picture>().is_none() {
+            if widget.downcast_ref::<crate::Danmakw>().is_none() {
                 return false;
             }
         }

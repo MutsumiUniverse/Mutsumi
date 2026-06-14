@@ -1,6 +1,8 @@
 use adw::{glib, prelude::*};
 use mutsumi::Danmakw;
 
+mod parse;
+
 fn main() {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
@@ -25,8 +27,18 @@ fn main() {
 
         window.present();
 
-        danmakw.add_danmaku("abc");
-        danmakw.add_danmaku("abcsdasdsadasdasdsafsadfasfasfasfasfasf");
+        let xml = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("example/test.xml"),
+        )
+        .expect("failed to read test.xml");
+
+        match parse::parse_bilibili_xml(&xml) {
+            Ok(danmaku) => {
+                danmakw.load_danmaku(danmaku);
+                danmakw.start_clock();
+            }
+            Err(e) => eprintln!("parse error: {e}"),
+        }
     });
 
     app.run_with_args::<&str>(&[]);

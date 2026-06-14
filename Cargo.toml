@@ -28,6 +28,11 @@ thiserror = "2.0.18"
 tsutils = { git = "https://github.com/tsukinaha/tsutils.git", version = "0.1.0" }
 libmpv2-sys = "4.0.1"
 pango = "0.22.6"
+pangocairo = "0.22"
+cairo-rs = "0.22"
+
+[dev-dependencies]
+quick-xml = { version = "0.40", features = ["serialize"] }
 
 [build-dependencies]
 glib-build-tools = "0.22"
