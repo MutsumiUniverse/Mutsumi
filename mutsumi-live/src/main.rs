@@ -1,7 +1,5 @@
 use adw::prelude::*;
-use mutsumi::{PlayParams, PlaySource};
 use mutsumi_live::MutsumiLiveWindow;
-
 
 fn main() {
     tracing_subscriber::fmt()
@@ -17,7 +15,7 @@ fn main() {
         mutsumi::init();
 
         let window = MutsumiLiveWindow::new(app);
-        window.set_title(Some("Mutsumi Player"));
+        window.set_title(Some("Mutsumi Live Player"));
         window.set_default_width(1280);
         window.set_default_height(720);
         window.present();

@@ -772,6 +772,10 @@ impl MutsumiPlayer {
     pub fn playlist_stack_page(&self) -> adw::ViewStackPage {
         self.imp().playlist_stack_page.get()
     }
+
+    pub fn danmakw(&self) -> crate::Danmakw {
+        self.imp().danmakw.get()
+    }
 }
 
 async fn fetch_url_content(url: &str) -> Result<String, Box<dyn std::error::Error>> {

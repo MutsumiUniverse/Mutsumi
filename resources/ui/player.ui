@@ -7,6 +7,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
 <interface>
   <requires lib="gtk" version="4.0"/>
   <template class="MutsumiPlayer" parent="AdwBin">
+    <property name="video-title">Mutsumi Danmaku Video Player</property>
+    <property name="video-subtitle">uses wl-proxy for rendering</property>
     <property name="focusable">true</property>
     <child>
       <object class="GtkEventControllerMotion">

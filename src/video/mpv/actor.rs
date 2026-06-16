@@ -317,6 +317,7 @@ impl SendMpv {
                 }
                 Event::Shutdown => {
                     let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Shutdown);
+                    let _ = MPV_CTRL.tx.send(MpvMessage::Shutdown);
                     return false;
                 }
                 _ => {}

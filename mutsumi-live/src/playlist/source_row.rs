@@ -38,9 +38,8 @@ mod imp {
     impl ObjectImpl for SourceActionRow {
         fn signals() -> &'static [glib::subclass::Signal] {
             static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
-            SIGNALS.get_or_init(|| {
-                vec![glib::subclass::Signal::builder("delete-requested").build()]
-            })
+            SIGNALS
+                .get_or_init(|| vec![glib::subclass::Signal::builder("delete-requested").build()])
         }
     }
 

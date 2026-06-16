@@ -84,9 +84,11 @@ mod imp {
         fn signals() -> &'static [glib::subclass::Signal] {
             static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
             SIGNALS.get_or_init(|| {
-                vec![glib::subclass::Signal::builder("play-requested")
-                    .param_types([String::static_type(), String::static_type()])
-                    .build()]
+                vec![
+                    glib::subclass::Signal::builder("play-requested")
+                        .param_types([String::static_type(), String::static_type()])
+                        .build(),
+                ]
             })
         }
 
@@ -153,7 +155,9 @@ mod imp {
         fn on_row_activated(&self, row: &gtk::ListBoxRow) {
             let idx = row.index() as usize;
             let sources = self.sources.borrow();
-            let Some(entry) = sources.get(idx) else { return };
+            let Some(entry) = sources.get(idx) else {
+                return;
+            };
             self.obj()
                 .emit_by_name::<()>("play-requested", &[&entry.name, &entry.url]);
         }

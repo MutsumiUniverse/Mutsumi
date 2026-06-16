@@ -4,6 +4,13 @@ pub trait GlobalToast {
     fn toast(&self, message: impl Into<String>);
 }
 
+pub trait OwnedToast {
+    fn toast_overlay(&self) -> Option<adw::ToastOverlay> {
+        None
+    }
+}
+
+
 impl<T> GlobalToast for T
 where
     T: IsA<gtk::Widget>,

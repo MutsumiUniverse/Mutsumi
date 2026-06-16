@@ -84,6 +84,7 @@ mod imp {
         }
 
         fn dispose(&self) {
+            self.texture.take();
             self.mpv.shutdown();
         }
 
