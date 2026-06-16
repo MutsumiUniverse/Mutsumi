@@ -11,7 +11,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <child type="prefix">
       <object class="GtkStack" id="live_stack">
         <property name="valign">3</property>
-        <property name="visible">false</property>
         <property name="transition-type">1</property>
         <child>
           <object class="GtkStackPage">

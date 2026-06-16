@@ -50,6 +50,10 @@ mod imp {
             let playlist = PlayList::new();
             self.player.playlist_bin().set_child(Some(&playlist));
             self.player.playlist_stack_page().set_visible(true);
+            self.player.mpv().set_property(
+                "ytdl-raw-options",
+                "cookies-from-browser=firefox".to_string(),
+            );
 
             let obj = self.obj();
             playlist.connect_play_requested(glib::clone!(
