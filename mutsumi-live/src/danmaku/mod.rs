@@ -1,3 +1,8 @@
+mod douyu;
+pub use douyu::{
+    check_douyu_live_status, get_douyu_stream_url, parse_douyu_room_id, spawn_douyu_live_danmaku,
+};
+
 use std::io::Read;
 use std::sync::{
     Arc,

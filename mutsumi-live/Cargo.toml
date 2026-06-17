@@ -22,6 +22,8 @@ async-tungstenite = { version = "0.17", features = ["tokio-native-tls"] }
 flate2 = "1"
 md5 = "0.8.0"
 brotli = "8.0.4"
+rquickjs = "0.6"
+uuid = { version = "1", features = ["v4"] }
 
 [build-dependencies]
 glib-build-tools = "0.22"

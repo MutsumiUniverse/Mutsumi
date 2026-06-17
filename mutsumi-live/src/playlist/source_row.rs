@@ -125,24 +125,40 @@ impl SourceActionRow {
     }
 
     pub fn refresh_live_status(&self) {
-        let Some(room_id) = crate::danmaku::parse_bilibili_live_room_id(&self.source_url())
-        else {
-            self.imp().set_live_status(LiveStatus::Unknown);
+        let url = self.source_url();
+
+        if let Some(room_id) = crate::danmaku::parse_bilibili_live_room_id(&url) {
+            self.imp().set_live_status(LiveStatus::Loading);
+            let weak = self.downgrade();
+            glib::spawn_future_local(async move {
+                let status = match crate::danmaku::check_bilibili_live_status(room_id).await {
+                    Some(true) => LiveStatus::Live,
+                    Some(false) => LiveStatus::Offline,
+                    None => LiveStatus::Unknown,
+                };
+                if let Some(row) = weak.upgrade() {
+                    row.imp().set_live_status(status);
+                }
+            });
             return;
-        };
+        }
 
-        self.imp().set_live_status(LiveStatus::Loading);
+        if let Some(rid) = crate::danmaku::parse_douyu_room_id(&url) {
+            self.imp().set_live_status(LiveStatus::Loading);
+            let weak = self.downgrade();
+            glib::spawn_future_local(async move {
+                let status = match crate::danmaku::check_douyu_live_status(&rid).await {
+                    Some(true) => LiveStatus::Live,
+                    Some(false) => LiveStatus::Offline,
+                    None => LiveStatus::Unknown,
+                };
+                if let Some(row) = weak.upgrade() {
+                    row.imp().set_live_status(status);
+                }
+            });
+            return;
+        }
 
-        let weak = self.downgrade();
-        glib::spawn_future_local(async move {
-            let status = match crate::danmaku::check_bilibili_live_status(room_id).await {
-                Some(true) => LiveStatus::Live,
-                Some(false) => LiveStatus::Offline,
-                None => LiveStatus::Unknown,
-            };
-            if let Some(row) = weak.upgrade() {
-                row.imp().set_live_status(status);
-            }
-        });
+        self.imp().set_live_status(LiveStatus::Unknown);
     }
 }

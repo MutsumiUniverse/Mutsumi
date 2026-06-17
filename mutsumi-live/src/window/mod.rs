@@ -8,7 +8,10 @@ use gtk::{CompositeTemplate, glib};
 use mutsumi::{Color, DanmakuMode, MutsumiPlayer, PlayParams, PlaySource};
 
 use crate::PlayList;
-use crate::danmaku::{LiveDanmaku, parse_bilibili_live_room_id, spawn_bilibili_live_danmaku};
+use crate::danmaku::{
+    LiveDanmaku, get_douyu_stream_url, parse_bilibili_live_room_id, parse_douyu_room_id,
+    spawn_bilibili_live_danmaku, spawn_douyu_live_danmaku,
+};
 
 mod imp {
     use std::cell::{OnceCell, RefCell};
@@ -66,6 +69,69 @@ mod imp {
                     // Stop any running live danmaku task
                     if let Some(stop) = imp.danmaku_stop.take() {
                         stop.store(false, Ordering::Relaxed);
+                    }
+
+                    if let Some(rid) = parse_douyu_room_id(&url) {
+                        imp.player.danmakw().load_danmaku(vec![]);
+
+                        let (stream_tx, stream_rx) = flume::bounded::<Result<String, String>>(1);
+                        let rid_thread = rid.clone();
+                        std::thread::spawn(move || {
+                            tokio::runtime::Builder::new_current_thread()
+                                .enable_all()
+                                .build()
+                                .unwrap()
+                                .block_on(async move {
+                                    let result = get_douyu_stream_url(&rid_thread)
+                                        .await
+                                        .map_err(|e| e.to_string());
+                                    let _ = stream_tx.send(result);
+                                });
+                        });
+
+                        let weak = obj.downgrade();
+                        let name = name.to_string();
+                        let url = url.to_string();
+                        glib::spawn_future_local(async move {
+                            let stream_url = match stream_rx.recv_async().await {
+                                Ok(Ok(u)) => u,
+                                Ok(Err(e)) => {
+                                    tracing::error!(
+                                        "failed to resolve douyu stream for room {rid}: {e}"
+                                    );
+                                    return;
+                                }
+                                Err(_) => return,
+                            };
+
+                            let Some(obj) = weak.upgrade() else { return };
+                            let imp = obj.imp();
+
+                            let params = PlayParams::builder(PlaySource::Url(stream_url))
+                                .title(name)
+                                .subtitle(url)
+                                .build();
+                            imp.player.play(&params);
+
+                            let stop = Arc::new(AtomicBool::new(true));
+                            let (dm_tx, dm_rx) = flume::unbounded::<LiveDanmaku>();
+                            spawn_douyu_live_danmaku(rid, dm_tx, Arc::clone(&stop));
+                            imp.danmaku_stop.replace(Some(stop));
+
+                            let danmakw = imp.player.danmakw();
+                            glib::spawn_future_local(async move {
+                                while let Ok(dm) = dm_rx.recv_async().await {
+                                    let color = Color {
+                                        r: ((dm.color >> 16) & 0xFF) as u8,
+                                        g: ((dm.color >> 8) & 0xFF) as u8,
+                                        b: (dm.color & 0xFF) as u8,
+                                        a: 255,
+                                    };
+                                    danmakw.add_danmaku_full(&dm.text, color, DanmakuMode::Scroll);
+                                }
+                            });
+                        });
+                        return;
                     }
 
                     let params = PlayParams::builder(PlaySource::Url(url.to_owned()))
