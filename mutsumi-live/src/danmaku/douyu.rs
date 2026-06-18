@@ -117,15 +117,17 @@ pub async fn check_douyu_live_status(rid: &str) -> Option<bool> {
     rx.recv_async().await.ok().flatten()
 }
 
+/// Returns `(stream_url, real_rid)`. The real_rid may differ from the input
+/// when the input is a Douyu room alias (slug) rather than a numeric room ID.
 pub async fn get_douyu_stream_url(
     rid: &str,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<(String, String), Box<dyn std::error::Error + Send + Sync>> {
     const API2: &str = "https://www.douyu.com/swf_api/homeH5Enc?rids=";
     const API3: &str = "https://www.douyu.com/lapi/live/getH5Play/";
 
     let client = reqwest::Client::new();
-    let rid = resolve_real_rid(&client, rid).await;
-    let rid = rid.as_str();
+    let real_rid = resolve_real_rid(&client, rid).await;
+    let rid = real_rid.as_str();
 
     let resp = client
         .get(format!("{API2}{rid}"))
@@ -188,7 +190,7 @@ pub async fn get_douyu_stream_url(
         .and_then(|x| x.as_str())
         .ok_or("missing rtmp_live")?;
 
-    Ok(format!("{rtmp_url}/{rtmp_live}"))
+    Ok((format!("{rtmp_url}/{rtmp_live}"), real_rid))
 }
 
 fn build_packet(payload: &str) -> Vec<u8> {

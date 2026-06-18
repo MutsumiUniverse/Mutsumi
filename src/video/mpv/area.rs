@@ -22,7 +22,7 @@ mod imp {
 
     use super::*;
 
-    use flume::bounded;
+    use tokio::sync::oneshot;
 
     use gdk_x11::X11Display;
 
@@ -146,7 +146,7 @@ mod imp {
                 ));
             }
 
-            let (arc_tx, arc_rx) = bounded::<Arc<Mpv>>(1);
+            let (arc_tx, arc_rx) = oneshot::channel::<Arc<Mpv>>();
 
             MPV_CTRL
                 .tx
@@ -157,7 +157,7 @@ mod imp {
                 #[weak(rename_to = imp)]
                 self,
                 async move {
-                    let mpv = arc_rx.recv_async().await.expect("Actor dropped sender");
+                    let mpv = arc_rx.await.expect("Actor dropped sender");
                     let mut ctx = mpv
                         .create_render_context(render_params)
                         .expect("Failed creating render context");

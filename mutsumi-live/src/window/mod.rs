@@ -74,7 +74,8 @@ mod imp {
                     if let Some(rid) = parse_douyu_room_id(&url) {
                         imp.player.danmakw().load_danmaku(vec![]);
 
-                        let (stream_tx, stream_rx) = flume::bounded::<Result<String, String>>(1);
+                        let (stream_tx, stream_rx) =
+                            flume::bounded::<Result<(String, String), String>>(1);
                         let rid_thread = rid.clone();
                         std::thread::spawn(move || {
                             tokio::runtime::Builder::new_current_thread()
@@ -93,8 +94,8 @@ mod imp {
                         let name = name.to_string();
                         let url = url.to_string();
                         glib::spawn_future_local(async move {
-                            let stream_url = match stream_rx.recv_async().await {
-                                Ok(Ok(u)) => u,
+                            let (stream_url, real_rid) = match stream_rx.recv_async().await {
+                                Ok(Ok(v)) => v,
                                 Ok(Err(e)) => {
                                     tracing::error!(
                                         "failed to resolve douyu stream for room {rid}: {e}"
@@ -115,7 +116,7 @@ mod imp {
 
                             let stop = Arc::new(AtomicBool::new(true));
                             let (dm_tx, dm_rx) = flume::unbounded::<LiveDanmaku>();
-                            spawn_douyu_live_danmaku(rid, dm_tx, Arc::clone(&stop));
+                            spawn_douyu_live_danmaku(real_rid, dm_tx, Arc::clone(&stop));
                             imp.danmaku_stop.replace(Some(stop));
 
                             let danmakw = imp.player.danmakw();

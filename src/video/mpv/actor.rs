@@ -76,9 +76,9 @@ pub enum MpvMessage {
     GetProperty {
         property: &'static str,
         value_type: MpvValueType,
-        rx: Sender<MpvValue>,
+        tx: tokio::sync::oneshot::Sender<MpvValue>,
     },
-    InitRenderContext(Sender<Arc<Mpv>>),
+    InitRenderContext(tokio::sync::oneshot::Sender<Arc<Mpv>>),
     Shutdown,
 }
 
@@ -167,7 +167,7 @@ impl MpvActor {
                     MpvMessage::GetProperty {
                         property,
                         value_type,
-                        rx,
+                        tx,
                     } => {
                         let Some(result): Option<MpvValue> =
                             mpv.get_property_value(property, value_type)
@@ -175,7 +175,7 @@ impl MpvActor {
                             continue;
                         };
 
-                        let _ = rx.send(result);
+                        let _ = tx.send(result);
                     }
                     MpvMessage::InitRenderContext(tx) => {
                         let _ = tx.send(Arc::clone(&mpv.0));
@@ -204,16 +204,16 @@ impl MpvActor {
         &self,
         property: &str,
         value_type: MpvValueType,
-    ) -> Result<MpvValue, flume::RecvError> {
+    ) -> Result<MpvValue, tokio::sync::oneshot::error::RecvError> {
         let property = Box::leak(property.to_string().into_boxed_str());
-        let (rx, tx) = flume::unbounded();
+        let (tx, rx) = tokio::sync::oneshot::channel::<MpvValue>();
         _ = MPV_CTRL.tx.send(MpvMessage::GetProperty {
             property,
             value_type,
-            rx,
+            tx,
         });
 
-        tx.recv_async().await
+        rx.await
     }
 
     pub fn command(&self, cmd: &str, args: &[&str]) {
