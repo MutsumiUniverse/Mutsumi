@@ -79,12 +79,15 @@ mod imp {
         pub audio_listbox: TemplateChild<gtk::ListBox>,
 
         #[template_child]
+        pub sidebar_stack: TemplateChild<adw::ViewStack>,
+
+        #[template_child]
         pub playlist_page: TemplateChild<adw::Bin>,
         #[template_child]
         pub playlist_stack_page: TemplateChild<adw::ViewStackPage>,
 
         #[template_child]
-        pub overlay: TemplateChild<gtk::Overlay>,
+        pub overlay_status: TemplateChild<adw::Bin>,
 
         #[template_child]
         pub danmakw: TemplateChild<crate::Danmakw>,
@@ -250,11 +253,18 @@ impl MutsumiPlayer {
         self.imp().video.get().backend_ref().mpv().mpv
     }
 
-    pub fn overlay(&self) -> gtk::Overlay {
-        self.imp().overlay.get()
+    pub fn overlay_status(&self) -> adw::Bin {
+        self.imp().overlay_status.get()
+    }
+
+    pub fn open_playlist(&self) {
+        self.imp().sidebar_stack.set_visible_child_name("playlist");
+        self.imp().split_view.set_show_sidebar(true);
     }
 
     pub fn play(&self, params: &PlayParams) {
+        self.imp().overlay_status.set_visible(false);
+
         if let Some(ref title) = params.title {
             self.set_video_title(title.to_owned());
         }

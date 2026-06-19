@@ -115,6 +115,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                   </object>
                 </child>
                 <child type="overlay">
+                  <object class="AdwBin" id="overlay_status">
+                    <property name="halign">3</property>
+                    <property name="valign">3</property>
+                  </object>
+                </child>
+                <child type="overlay">
                   <object class="GtkBox" id="loading_box">
                     <property name="visible">false</property>
                     <property name="valign">3</property>

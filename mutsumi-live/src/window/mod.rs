@@ -19,6 +19,8 @@ mod imp {
     use adw::prelude::*;
     use glib::subclass::InitializingObject;
 
+    use crate::status::PlaceHolderStatus;
+
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate)]
@@ -57,9 +59,19 @@ mod imp {
                 "ytdl-raw-options",
                 "cookies-from-browser=firefox".to_string(),
             );
-            // self.player.overlay().add_overlay();
 
             let obj = self.obj();
+
+            let place_holder_status = PlaceHolderStatus::new();
+            place_holder_status.connect_button_clicked(glib::clone!(
+                #[weak]
+                obj,
+                move || {
+                    obj.player().open_playlist();
+                }
+            ));
+            self.player.overlay_status().set_child(Some(&place_holder_status));
+
             playlist.connect_play_requested(glib::clone!(
                 #[weak]
                 obj,
