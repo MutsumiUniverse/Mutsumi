@@ -525,6 +525,7 @@ Popover danmaku_popover {
 
         Adw.ExpanderRow expander_row {
             title: _("Danmaku");
+            expanded: bind danmaku_switch.active bidirectional;
 
             [prefix]
             Image {
@@ -533,7 +534,7 @@ Popover danmaku_popover {
 
             [suffix]
             Switch danmaku_switch {
-                active: bind expander_row.expanded bidirectional;
+                active: true;
                 valign: center;
             }
 
