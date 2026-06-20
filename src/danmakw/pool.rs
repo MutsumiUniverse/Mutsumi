@@ -161,7 +161,7 @@ impl Danmakw {
         );
     }
 
-    fn cb(&self, _frame_clock: &FrameClock) -> glib::ControlFlow {
+    fn cb(&self, frame_clock: &FrameClock) -> glib::ControlFlow {
         let imp = self.imp();
         let width = self.width() as f32;
 
@@ -171,9 +171,11 @@ impl Danmakw {
             return glib::ControlFlow::Continue;
         };
 
-        imp.renderer
-            .borrow_mut()
-            .update(&self.pango_context(), width, clock.time_milis());
+        imp.renderer.borrow_mut().update(
+            &self.pango_context(),
+            width,
+            clock.time_milis_at(frame_clock.frame_time()),
+        );
 
         self.queue_draw();
         glib::ControlFlow::Continue
