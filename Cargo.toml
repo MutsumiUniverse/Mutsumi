@@ -72,3 +72,7 @@ path = "example/mpv.rs"
 [[example]]
 name = "danmakw"
 path = "example/danmakw.rs"
+
+[[bench]]
+name = "danmaku_queue"
+harness = false

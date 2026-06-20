@@ -262,9 +262,11 @@ impl DanmakwRenderer {
             return;
         }
 
-        for next_danmaku in self.danmaku_queue.pop_to_time(time_milis) {
-            self.add_danmaku(context, screen_width, next_danmaku);
+        let mut danmaku_queue = std::mem::take(&mut self.danmaku_queue);
+        for next_danmaku in danmaku_queue.pop_to_time_iter(time_milis) {
+            self.add_danmaku(context, screen_width, next_danmaku.clone());
         }
+        self.danmaku_queue = danmaku_queue;
 
         for text in self.scroll_danmaku.iter_mut() {
             text.x += text.velocity_x * delta_time * self.speed_factor as f32;
