@@ -1,6 +1,6 @@
 pub struct DanmakuClock {
-    start_time: std::time::Instant,
-    paused_time: Option<std::time::Instant>,
+    start_time: i64,
+    paused_time: Option<i64>,
     speed_factor: f64,
 }
 
@@ -13,7 +13,7 @@ impl Default for DanmakuClock {
 impl DanmakuClock {
     pub fn new(speed_factor: f64) -> Self {
         Self {
-            start_time: std::time::Instant::now(),
+            start_time: glib::monotonic_time(),
             paused_time: None,
             speed_factor,
         }
@@ -21,18 +21,21 @@ impl DanmakuClock {
 
     #[inline]
     pub fn time_milis(&self) -> f64 {
+        self.time_milis_at(glib::monotonic_time())
+    }
+
+    #[inline]
+    pub fn time_milis_at(&self, time_micros: i64) -> f64 {
         let Some(paused_time) = self.paused_time else {
-            return (std::time::Instant::now() - self.start_time).as_secs_f64()
-                * 1000.0
-                * self.speed_factor;
+            return (time_micros - self.start_time) as f64 / 1000.0 * self.speed_factor;
         };
 
-        (paused_time - self.start_time).as_secs_f64() * 1000.0 * self.speed_factor
+        (paused_time - self.start_time) as f64 / 1000.0 * self.speed_factor
     }
 
     pub fn pause(&mut self) {
         if self.paused_time.is_none() {
-            self.paused_time = Some(std::time::Instant::now());
+            self.paused_time = Some(glib::monotonic_time());
         }
     }
 
@@ -41,7 +44,7 @@ impl DanmakuClock {
             return;
         };
 
-        self.start_time = std::time::Instant::now() - (paused_time - self.start_time);
+        self.start_time = glib::monotonic_time() - (paused_time - self.start_time);
         self.paused_time = None;
     }
 
@@ -52,16 +55,14 @@ impl DanmakuClock {
     }
 
     pub fn seek(&mut self, time_milis: f64) {
-        let desired_secs = time_milis / 1000.0 / self.speed_factor;
+        let desired_micros = (time_milis * 1000.0 / self.speed_factor) as i64;
 
         match self.paused_time {
             Some(_) => {
-                self.paused_time =
-                    Some(self.start_time + std::time::Duration::from_secs_f64(desired_secs));
+                self.paused_time = Some(self.start_time + desired_micros);
             }
             None => {
-                self.start_time =
-                    std::time::Instant::now() - std::time::Duration::from_secs_f64(desired_secs);
+                self.start_time = glib::monotonic_time() - desired_micros;
             }
         }
     }

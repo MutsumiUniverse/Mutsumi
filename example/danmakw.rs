@@ -35,7 +35,7 @@ fn main() {
         match parse::parse_bilibili_xml(&xml) {
             Ok(danmaku) => {
                 danmakw.load_danmaku(danmaku);
-                danmakw.start_clock();
+                danmakw.start_rendering();
             }
             Err(e) => eprintln!("parse error: {e}"),
         }

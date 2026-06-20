@@ -6,11 +6,14 @@ use libmpv2::{
     Format, Mpv,
     events::{Event, PropertyData},
 };
+use mutsumi_utils::spawn_tokio_blocking;
 use once_cell::sync::Lazy;
 use serde_json::Value;
-use mutsumi_utils::spawn_tokio_blocking;
 
-struct SendMpv(Arc<Mpv>);
+struct SendMpv {
+    mpv: Arc<Mpv>,
+    has_file: std::cell::Cell<bool>,
+}
 unsafe impl Send for SendMpv {}
 
 #[derive(Debug, Clone)]
@@ -102,7 +105,7 @@ impl Deref for SendMpv {
     type Target = Mpv;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.mpv
     }
 }
 
@@ -142,9 +145,15 @@ impl MpvActor {
         mpv.observe_property("chapter-list", Format::String, 8)?;
         mpv.observe_property("speed", Format::Double, 9)?;
 
-        let mpv = SendMpv(Arc::new(mpv));
+        let mpv = SendMpv {
+            mpv: Arc::new(mpv),
+            has_file: std::cell::Cell::new(false),
+        };
 
-        let event_mpv = SendMpv(Arc::clone(&mpv.0));
+        let event_mpv = SendMpv {
+            mpv: Arc::clone(&mpv.mpv),
+            has_file: std::cell::Cell::new(false),
+        };
         std::thread::Builder::new()
             .name("mpv event loop".into())
             .spawn(move || while event_mpv.handle_event() {})
@@ -178,7 +187,7 @@ impl MpvActor {
                         let _ = tx.send(result);
                     }
                     MpvMessage::InitRenderContext(tx) => {
-                        let _ = tx.send(Arc::clone(&mpv.0));
+                        let _ = tx.send(Arc::clone(&mpv.mpv));
                     }
                     MpvMessage::Shutdown => break,
                 }
@@ -243,7 +252,9 @@ impl SendMpv {
                     }
                     "pause" => {
                         if let PropertyData::Flag(pause) = change {
-                            let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Pause(pause));
+                            if self.has_file.get() || pause {
+                                let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Pause(pause));
+                            }
                         }
                     }
                     "cache-speed" => {
@@ -310,10 +321,14 @@ impl SendMpv {
                         .send(ListenEvent::PlaybackRestart(time_millis));
                 }
                 Event::EndFile(r) => {
+                    self.has_file.set(false);
                     let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Eof(r));
                 }
                 Event::StartFile => {
+                    self.has_file.set(true);
                     let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::StartFile);
+                    let pause = self.get_property::<bool>("pause").unwrap_or(false);
+                    let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Pause(pause));
                 }
                 Event::Shutdown => {
                     let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Shutdown);

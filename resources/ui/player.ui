@@ -105,6 +105,15 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                   <object class="Danmakw" id="danmakw">
                     <property name="hexpand">true</property>
                     <property name="vexpand">true</property>
+                    <property name="visible" bind-source="danmaku_switch" bind-property="active" bind-flags="sync-create"/>
+                    <property name="opacity" bind-source="danmaku_opacity" bind-property="value" bind-flags="sync-create"/>
+                    <property name="speed-factor" bind-source="danmaku_speed_spin" bind-property="value" bind-flags="sync-create"/>
+                    <property name="font-size" bind-source="font_size_spin" bind-property="value" bind-flags="sync-create"/>
+                    <property name="font-weight" bind-source="font_weight_combo" bind-property="selected" bind-flags="sync-create"/>
+                    <property name="intensity" bind-source="intensity_combo" bind-property="selected" bind-flags="sync-create"/>
+                    <property name="spacing-factor" bind-source="spacing_spin" bind-property="value" bind-flags="sync-create"/>
+                    <property name="outline-px" bind-source="outline_spin" bind-property="value" bind-flags="sync-create"/>
+                    <property name="shadow-offset" bind-source="shadow_spin" bind-property="value" bind-flags="sync-create"/>
                   </object>
                 </child>
                 <child type="overlay">
@@ -537,32 +546,166 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     </child>
   </template>
   <object class="GtkPopover" id="danmaku_popover">
-    <property name="height-request">300</property>
+    <property name="height-request">100</property>
     <property name="width-request">320</property>
-    <property name="position">2</property>
+    <property name="position">3</property>
     <property name="has-arrow">true</property>
     <child>
-      <object class="GtkScrolledWindow">
+      <object class="GtkListBox">
+        <property name="selection-mode">0</property>
+        <property name="valign">1</property>
         <child>
-          <object class="GtkListBox">
-            <property name="selection-mode">0</property>
-            <property name="valign">1</property>
-            <child>
-              <object class="AdwActionRow">
-                <property name="title" translatable="yes">Enable Danmaku</property>
-                <property name="activatable-widget">danmaku_switch</property>
-                <child>
-                  <object class="GtkSwitch" id="danmaku_switch">
-                    <property name="valign">3</property>
-                  </object>
-                </child>
+          <object class="AdwExpanderRow" id="expander_row">
+            <property name="title" translatable="yes">Danmaku</property>
+            <child type="prefix">
+              <object class="GtkImage">
+                <property name="icon-name">card-bulleted-symbolic</property>
               </object>
             </child>
-            <style>
-              <class name="boxed-list-separate"/>
-            </style>
+            <child type="suffix">
+              <object class="GtkSwitch" id="danmaku_switch">
+                <property name="active" bind-source="expander_row" bind-property="expanded" bind-flags="sync-create|bidirectional"/>
+                <property name="valign">3</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow">
+                <property name="title" translatable="yes">Opacity</property>
+                <property name="digits">2</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment" id="danmaku_opacity">
+                    <property name="lower">0.1</property>
+                    <property name="upper">1</property>
+                    <property name="value">1</property>
+                    <property name="step-increment">0.01</property>
+                    <property name="page-increment">0.05</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow" id="danmaku_speed_spin">
+                <property name="title" translatable="yes">Speed</property>
+                <property name="digits">2</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">0.1</property>
+                    <property name="upper">5</property>
+                    <property name="value">1</property>
+                    <property name="step-increment">0.05</property>
+                    <property name="page-increment">0.2</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow" id="font_size_spin">
+                <property name="title" translatable="yes">Font Size</property>
+                <property name="digits">0</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">8</property>
+                    <property name="upper">96</property>
+                    <property name="value">24</property>
+                    <property name="step-increment">1</property>
+                    <property name="page-increment">4</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwComboRow" id="font_weight_combo">
+                <property name="title" translatable="yes">Font Weight</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item translatable="yes">Thin</item>
+                      <item translatable="yes">Ultralight</item>
+                      <item translatable="yes">Light</item>
+                      <item translatable="yes">Semilight</item>
+                      <item translatable="yes">Book</item>
+                      <item translatable="yes">Normal</item>
+                      <item translatable="yes">Medium</item>
+                      <item translatable="yes">Semibold</item>
+                      <item translatable="yes">Bold</item>
+                      <item translatable="yes">Ultrabold</item>
+                      <item translatable="yes">Heavy</item>
+                      <item translatable="yes">Ultraheavy</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">8</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwComboRow" id="intensity_combo">
+                <property name="title" translatable="yes">Danmaku Intensity</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item translatable="yes">Quarter</item>
+                      <item translatable="yes">Half</item>
+                      <item translatable="yes">Full</item>
+                      <item translatable="yes">Allow Overlay</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">1</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow" id="spacing_spin">
+                <property name="title" translatable="yes">Spacing</property>
+                <property name="subtitle" translatable="yes">N x Font Size</property>
+                <property name="digits">2</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">1</property>
+                    <property name="upper">5</property>
+                    <property name="value">1.5</property>
+                    <property name="step-increment">0.05</property>
+                    <property name="page-increment">0.2</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow" id="outline_spin">
+                <property name="title" translatable="yes">Stroke Size</property>
+                <property name="subtitle" translatable="yes">px</property>
+                <property name="digits">1</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">0</property>
+                    <property name="upper">5</property>
+                    <property name="value">1</property>
+                    <property name="step-increment">0.5</property>
+                    <property name="page-increment">1</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow" id="shadow_spin">
+                <property name="title" translatable="yes">Shadow Offset</property>
+                <property name="subtitle" translatable="yes">px</property>
+                <property name="digits">1</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">0</property>
+                    <property name="upper">5</property>
+                    <property name="value">1</property>
+                    <property name="step-increment">0.5</property>
+                    <property name="page-increment">1</property>
+                  </object>
+                </property>
+              </object>
+            </child>
           </object>
         </child>
+        <style>
+          <class name="boxed-list-separate"/>
+        </style>
       </object>
     </child>
   </object>

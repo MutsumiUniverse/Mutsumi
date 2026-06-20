@@ -7,13 +7,15 @@ pub trait DanmakwSnapshotExt {
 
 impl DanmakwSnapshotExt for gtk::Snapshot {
     fn render_danmakw(&self, renderer: &mut DanmakwRenderer, width: f32, height: f32) {
+        let scale = renderer.scale_factor as f32;
+
         for sd in renderer.scroll_danmaku.iter() {
             let off = sd.origin_offset;
             let bounds = gtk::graphene::Rect::new(
                 sd.x - off,
                 renderer.scrolled_top_y(sd.row) - off,
-                sd.texture.width() as f32,
-                sd.texture.height() as f32,
+                sd.texture.width() as f32 / scale,
+                sd.texture.height() as f32 / scale,
             );
             self.append_texture(&sd.texture, &bounds);
         }
@@ -25,8 +27,8 @@ impl DanmakwSnapshotExt for gtk::Snapshot {
             let bounds = gtk::graphene::Rect::new(
                 x - off,
                 y - off,
-                cd.texture.width() as f32,
-                cd.texture.height() as f32,
+                cd.texture.width() as f32 / scale,
+                cd.texture.height() as f32 / scale,
             );
             self.append_texture(&cd.texture, &bounds);
         }
@@ -38,8 +40,8 @@ impl DanmakwSnapshotExt for gtk::Snapshot {
             let bounds = gtk::graphene::Rect::new(
                 x - off,
                 y - off,
-                cd.texture.width() as f32,
-                cd.texture.height() as f32,
+                cd.texture.width() as f32 / scale,
+                cd.texture.height() as f32 / scale,
             );
             self.append_texture(&cd.texture, &bounds);
         }

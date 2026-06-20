@@ -85,6 +85,15 @@ template $MutsumiPlayer: Adw.Bin {
                 $Danmakw danmakw {
                     hexpand: "true";
                     vexpand: "true";
+                    visible: bind danmaku_switch.active;
+                    opacity: bind danmaku_opacity.value;
+                    speed-factor: bind danmaku_speed_spin.value;
+                    font-size: bind font_size_spin.value;
+                    font-weight: bind font_weight_combo.selected;
+                    intensity: bind intensity_combo.selected;
+                    spacing-factor: bind spacing_spin.value;
+                    outline-px: bind outline_spin.value;
+                    shadow-offset: bind shadow_spin.value;
                 }
 
                 [overlay]
@@ -505,29 +514,152 @@ template $MutsumiPlayer: Adw.Bin {
 }
 
 Popover danmaku_popover {
-    height-request: 300;
+    height-request: 100;
     width-request: 320;
-    position: top;
+    position: bottom;
     has-arrow: true;
 
-    ScrolledWindow {
-        ListBox {
-            selection-mode: none;
-            valign: start;
+    ListBox {
+        selection-mode: none;
+        valign: start;
 
-            Adw.ActionRow {
-                title: _("Enable Danmaku");
-                activatable-widget: danmaku_switch;
+        Adw.ExpanderRow expander_row {
+            title: _("Danmaku");
 
-                Switch danmaku_switch {
-                    valign: center;
-                }
+            [prefix]
+            Image {
+                icon-name: "card-bulleted-symbolic";
             }
 
-            styles [
-                "boxed-list-separate",
-            ]
+            [suffix]
+            Switch danmaku_switch {
+                active: bind expander_row.expanded bidirectional;
+                valign: center;
+            }
+
+            Adw.SpinRow {
+                title: _("Opacity");
+                digits: 2;
+
+                adjustment: Adjustment danmaku_opacity {
+                    lower: 0.10;
+                    upper: 1.00;
+                    value: 1.00;
+                    step-increment: 0.01;
+                    page-increment: 0.05;
+                };
+            }
+
+            Adw.SpinRow danmaku_speed_spin {
+                title: _("Speed");
+                digits: 2;
+
+                adjustment: Adjustment {
+                    lower: 0.10;
+                    upper: 5.00;
+                    value: 1.00;
+                    step-increment: 0.05;
+                    page-increment: 0.20;
+                };
+            }
+
+            Adw.SpinRow font_size_spin {
+                title: _("Font Size");
+                digits: 0;
+
+                adjustment: Adjustment {
+                    lower: 8;
+                    upper: 96;
+                    value: 24;
+                    step-increment: 1;
+                    page-increment: 4;
+                };
+            }
+
+            Adw.ComboRow font_weight_combo {
+                title: _("Font Weight");
+
+                model: StringList {
+                    strings [
+                        _("Thin"),
+                        _("Ultralight"),
+                        _("Light"),
+                        _("Semilight"),
+                        _("Book"),
+                        _("Normal"),
+                        _("Medium"),
+                        _("Semibold"),
+                        _("Bold"),
+                        _("Ultrabold"),
+                        _("Heavy"),
+                        _("Ultraheavy"),
+                    ]
+                };
+
+                selected: 8;
+            }
+
+            Adw.ComboRow intensity_combo {
+                title: _("Danmaku Intensity");
+
+                model: StringList {
+                    strings [
+                        _("Quarter"),
+                        _("Half"),
+                        _("Full"),
+                        _("Allow Overlay"),
+                    ]
+                };
+
+                selected: 1;
+            }
+
+            Adw.SpinRow spacing_spin {
+                title: _("Spacing");
+                subtitle: _("N x Font Size");
+                digits: 2;
+
+                adjustment: Adjustment {
+                    lower: 1;
+                    upper: 5;
+                    value: 1.5;
+                    step-increment: 0.05;
+                    page-increment: 0.20;
+                };
+            }
+
+            Adw.SpinRow outline_spin {
+                title: _("Stroke Size");
+                subtitle: _("px");
+                digits: 1;
+
+                adjustment: Adjustment {
+                    lower: 0;
+                    upper: 5;
+                    value: 1;
+                    step-increment: 0.5;
+                    page-increment: 1;
+                };
+            }
+
+            Adw.SpinRow shadow_spin {
+                title: _("Shadow Offset");
+                subtitle: _("px");
+                digits: 1;
+
+                adjustment: Adjustment {
+                    lower: 0;
+                    upper: 5;
+                    value: 1;
+                    step-increment: 0.5;
+                    page-increment: 1;
+                };
+            }
         }
+
+        styles [
+            "boxed-list-separate",
+        ]
     }
 }
 

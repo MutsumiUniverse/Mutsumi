@@ -11,8 +11,26 @@ mod imp {
     #[derive(glib::Properties)]
     #[properties(wrapper_type = super::Danmakw)]
     pub struct Danmakw {
-        #[property(get, set, default_value = 1.0)]
-        pub speed_factor: Cell<f32>,
+        #[property(get, set = Self::set_speed_factor, default_value = 1.0)]
+        pub speed_factor: Cell<f64>,
+
+        #[property(get, set = Self::set_font_size, default_value = 32.0)]
+        pub font_size: Cell<f64>,
+
+        #[property(get, set = Self::set_font_weight, default_value = 5u32)]
+        pub font_weight: Cell<u32>,
+
+        #[property(get, set = Self::set_intensity, default_value = 1u32)]
+        pub intensity: Cell<u32>,
+
+        #[property(get, set = Self::set_spacing_factor, default_value = 1.2)]
+        pub spacing_factor: Cell<f64>,
+
+        #[property(get, set = Self::set_outline_px, default_value = 1.0)]
+        pub outline_px: Cell<f64>,
+
+        #[property(get, set = Self::set_shadow_offset, default_value = 1.0)]
+        pub shadow_offset: Cell<f64>,
 
         pub renderer: RefCell<DanmakwRenderer>,
         pub clock: RefCell<Option<DanmakuClock>>,
@@ -23,6 +41,12 @@ mod imp {
         fn default() -> Self {
             Self {
                 speed_factor: Cell::new(1.0),
+                font_size: Cell::new(32.0),
+                font_weight: Cell::new(5),
+                intensity: Cell::new(1),
+                spacing_factor: Cell::new(1.2),
+                outline_px: Cell::new(1.0),
+                shadow_offset: Cell::new(1.0),
                 renderer: Default::default(),
                 clock: Default::default(),
                 tick_callback_id: Default::default(),
@@ -50,6 +74,7 @@ mod imp {
             let width = obj.width() as f32;
             let height = obj.height() as f32;
             let mut renderer = self.renderer.borrow_mut();
+            renderer.scale_factor = obj.scale_factor() as f64;
             snapshot.render_danmakw(&mut renderer, width, height);
         }
     }
@@ -60,7 +85,7 @@ mod imp {
             if let Some(c) = clock.as_mut() {
                 c.resume();
             } else {
-                *clock = Some(DanmakuClock::new(self.obj().speed_factor() as f64));
+                *clock = Some(DanmakuClock::new(self.speed_factor.get()));
             }
         }
 
@@ -68,6 +93,44 @@ mod imp {
             if let Some(clock) = self.clock.borrow_mut().as_mut() {
                 clock.pause();
             }
+        }
+
+        fn set_speed_factor(&self, v: f64) {
+            self.speed_factor.set(v);
+            self.renderer.borrow_mut().speed_factor = v;
+            if let Some(clock) = self.clock.borrow_mut().as_mut() {
+                clock.set_speed_factor(v);
+            }
+        }
+
+        fn set_font_size(&self, v: f64) {
+            self.font_size.set(v);
+            self.renderer.borrow_mut().font_size = v;
+        }
+
+        fn set_font_weight(&self, v: u32) {
+            self.font_weight.set(v);
+            self.renderer.borrow_mut().set_font_weight_index(v);
+        }
+
+        fn set_intensity(&self, v: u32) {
+            self.intensity.set(v);
+            self.renderer.borrow_mut().set_intensity(v);
+        }
+
+        fn set_spacing_factor(&self, v: f64) {
+            self.spacing_factor.set(v);
+            self.renderer.borrow_mut().spacing_factor = v as f32;
+        }
+
+        fn set_outline_px(&self, v: f64) {
+            self.outline_px.set(v);
+            self.renderer.borrow_mut().outline_px = v;
+        }
+
+        fn set_shadow_offset(&self, v: f64) {
+            self.shadow_offset.set(v);
+            self.renderer.borrow_mut().shadow_offset = v;
         }
     }
 }
@@ -101,10 +164,9 @@ impl Danmakw {
             color,
             mode,
         };
-        self.imp()
-            .renderer
-            .borrow_mut()
-            .add_danmaku(&self.pango_context(), width, danmaku);
+        let mut renderer = self.imp().renderer.borrow_mut();
+        renderer.scale_factor = self.scale_factor() as f64;
+        renderer.add_danmaku(&self.pango_context(), width, danmaku);
     }
 
     pub fn load_danmaku(&self, danmaku: Vec<Danmaku>) {
@@ -145,35 +207,35 @@ impl Danmakw {
     pub fn update(&self, time_milis: f64) {
         let imp = self.imp();
         let width = self.width() as f32;
-        imp.renderer
-            .borrow_mut()
-            .update(&self.pango_context(), width, time_milis);
+        let mut renderer = imp.renderer.borrow_mut();
+        renderer.scale_factor = self.scale_factor() as f64;
+        renderer.update(&self.pango_context(), width, time_milis);
     }
 
     pub fn preroll_seek(&self, time_milis: f64) {
         if let Some(c) = self.imp().clock.borrow_mut().as_mut() {
             c.seek(time_milis)
         }
-        self.imp().renderer.borrow_mut().rebuild_visible_state_at(
-            &self.pango_context(),
-            self.width() as f32,
-            time_milis,
-        );
+        let mut renderer = self.imp().renderer.borrow_mut();
+        renderer.scale_factor = self.scale_factor() as f64;
+        renderer.rebuild_visible_state_at(&self.pango_context(), self.width() as f32, time_milis);
     }
 
-    fn cb(&self, _frame_clock: &FrameClock) -> glib::ControlFlow {
+    fn cb(&self, frame_clock: &FrameClock) -> glib::ControlFlow {
         let imp = self.imp();
         let width = self.width() as f32;
 
-        let clock = imp.clock.borrow();
-
-        let Some(clock) = clock.as_ref() else {
-            return glib::ControlFlow::Continue;
+        let time = {
+            let clock = imp.clock.borrow();
+            let Some(clock) = clock.as_ref() else {
+                return glib::ControlFlow::Continue;
+            };
+            clock.time_milis_at(frame_clock.frame_time())
         };
 
-        imp.renderer
-            .borrow_mut()
-            .update(&self.pango_context(), width, clock.time_milis());
+        let mut renderer = imp.renderer.borrow_mut();
+        renderer.scale_factor = self.scale_factor() as f64;
+        renderer.update(&self.pango_context(), width, time);
 
         self.queue_draw();
         glib::ControlFlow::Continue

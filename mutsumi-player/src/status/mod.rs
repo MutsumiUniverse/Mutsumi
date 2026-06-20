@@ -1,12 +1,12 @@
 use adw::prelude::*;
-use adw::subclass::prelude::*;
 use gtk::{CompositeTemplate, glib};
+use adw::subclass::prelude::*;
 
 mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate)]
-    #[template(resource = "/io/github/mutsumi-live/ui/status.ui")]
+    #[template(resource = "/io/github/mutsumi-player/ui/status.ui")]
     pub struct PlaceHolderStatus {
         #[template_child]
         pub button: TemplateChild<gtk::Button>,

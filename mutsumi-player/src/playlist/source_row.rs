@@ -21,7 +21,7 @@ mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
-    #[template(resource = "/io/github/mutsumi-live/ui/source_row.ui")]
+    #[template(resource = "/io/github/mutsumi-player/ui/source_row.ui")]
     #[properties(wrapper_type = super::SourceActionRow)]
     pub struct SourceActionRow {
         #[template_child]
@@ -54,7 +54,8 @@ mod imp {
                 }
                 LiveStatus::Offline => {
                     self.live_icon.set_css_classes(&["error"]);
-                    self.live_icon.set_tooltip_text(Some("Offline"));
+                    self.live_icon
+                        .set_tooltip_text(Some("Offline"));
                     self.live_stack.set_visible_child_name("status");
                 }
             }
