@@ -16,6 +16,7 @@ fn main() {
         mutsumi::init();
 
         let danmakw = Danmakw::new();
+        danmakw.set_intensity(3);
 
         let window = adw::ApplicationWindow::builder()
             .application(app)

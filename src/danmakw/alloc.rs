@@ -172,8 +172,8 @@ impl Default for DanmakwRenderer {
 impl DanmakwRenderer {
     pub fn new(scale_factor: f64) -> Self {
         let scroll_max_rows = 25;
-        let top_center_max_rows = 5;
-        let bottom_center_max_rows = 5;
+        let top_center_max_rows = 10;
+        let bottom_center_max_rows = 10;
         let font_size = 24.0_f64;
         let font_px_logical = font_size * (96.0 / 72.0);
         let spacing_factor = 1.5_f32;
