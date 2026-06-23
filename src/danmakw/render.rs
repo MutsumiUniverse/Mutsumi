@@ -7,6 +7,10 @@ pub trait DanmakwSnapshotExt {
 
 impl DanmakwSnapshotExt for gtk::Snapshot {
     fn render_danmakw(&self, renderer: &mut DanmakwRenderer, width: f32, height: f32) {
+        if renderer.screen_height != height {
+            renderer.screen_height = height;
+            renderer.recompute_max_rows();
+        }
         let scale = renderer.scale_factor as f32;
 
         for sd in renderer.scroll_danmaku.iter() {
