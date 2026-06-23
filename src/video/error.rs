@@ -60,4 +60,27 @@ unsafe impl<'a> glib::value::FromValue<'a> for MutsumiMpvError {
     }
 }
 
-mpv_error!(AreaNotInitialized = -100, ContextNotInitialized = -101,);
+mpv_error!(
+    MpvSuccess = 0,
+    MpvEventQueueFull = -1,
+    MpvNoMem = -2,
+    MpvUninitialized = -3,
+    MpvInvalidParameter = -4,
+    MpvOptionNotFound = -5,
+    MpvOptionFormat = -6,
+    MpvOptionError = -7,
+    MpvPropertyNotFound = -8,
+    MpvPropertyFormat = -9,
+    MpvPropertyUnavailable = -10,
+    MpvPropertyError = -11,
+    MpvCommand = -12,
+    MpvLoadingFailed = -13,
+    MpvAoInitFailed = -14,
+    MpvVoInitFailed = -15,
+    MpvNothingToPlay = -16,
+    MpvUnknownFormat = -17,
+    MpvUnsupported = -18,
+    MpvNotImplemented = -19,
+    AreaNotInitialized = -101,
+    ContextNotInitialized = -102,
+);

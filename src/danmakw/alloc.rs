@@ -534,8 +534,10 @@ impl DanmakwRenderer {
             }
         });
 
-        let (bottom_danmaku, bottom_tracker) =
-            (&mut self.bottom_center_danmaku, &mut self.bottom_center_tracker);
+        let (bottom_danmaku, bottom_tracker) = (
+            &mut self.bottom_center_danmaku,
+            &mut self.bottom_center_tracker,
+        );
         for text in bottom_danmaku.iter_mut() {
             text.remaining_time -= delta_time;
         }
@@ -650,12 +652,11 @@ impl DanmakwRenderer {
         let raw_dpi = pangocairo::functions::context_get_resolution(context);
         let dpi = if raw_dpi > 0.0 { raw_dpi } else { 96.0 };
 
-        let font_px_device = if self
-            .cached_metrics
-            .as_ref()
-            .map_or(true, |m| m.is_stale(self.font_size, dpi, self.scale_factor, self.spacing_factor))
-        {
-            let m = FontMetrics::compute(self.font_size, dpi, self.scale_factor, self.spacing_factor);
+        let font_px_device = if self.cached_metrics.as_ref().map_or(true, |m| {
+            m.is_stale(self.font_size, dpi, self.scale_factor, self.spacing_factor)
+        }) {
+            let m =
+                FontMetrics::compute(self.font_size, dpi, self.scale_factor, self.spacing_factor);
             self.line_height = m.line_height;
             self.spacing = m.spacing;
             let fpd = m.font_px_device;

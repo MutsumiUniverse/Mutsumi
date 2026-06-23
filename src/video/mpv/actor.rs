@@ -1,5 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
+use crate::MutsumiMpvError;
+
 use super::*;
 use flume::{Receiver, Sender, unbounded};
 use libmpv2::{
@@ -338,7 +340,13 @@ impl SendMpv {
                 _ => {}
             },
             Err(e) => {
-                let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Error(e.to_string()));
+                let libmpv2::Error::Raw(e) = e else {
+                    return true;
+                };
+
+                let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Error(
+                    MutsumiMpvError::from_code(e).to_string(),
+                ));
             }
         }
 
