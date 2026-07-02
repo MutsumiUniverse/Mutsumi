@@ -172,15 +172,21 @@ impl CenterRowTracker {
         self.occupied.len()
     }
 
-    fn free_rows(&self) -> impl Iterator<Item = usize> + '_ {
-        self.occupied
+    fn find_row(&mut self, allow_overlay: bool) -> Option<usize> {
+        // Prefer the normal non-overlay strategy first.
+        let free_row = self
+            .occupied
             .iter()
             .enumerate()
-            .filter(|&(_, occ)| !occ)
-            .map(|(i, _)| i)
-    }
+            .find(|&(_, occ)| !occ)
+            .map(|(i, _)| i);
+        if let Some(row) = free_row {
+            if let Some(occ) = self.occupied.get_mut(row) {
+                *occ = true;
+            }
+            return Some(row);
+        }
 
-    fn find_row(&mut self, allow_overlay: bool) -> Option<usize> {
         if allow_overlay {
             if self.occupied.is_empty() {
                 return None;
@@ -189,9 +195,7 @@ impl CenterRowTracker {
             self.overlay_hint = self.overlay_hint.wrapping_add(1);
             Some(row)
         } else {
-            let row = self.free_rows().next()?;
-            self.occupied[row] = true;
-            Some(row)
+            None
         }
     }
 
@@ -340,6 +344,31 @@ impl DanmakwRenderer {
         });
     }
 
+    fn find_scroll_row(&self, width: f32, reach_edge_time: f32, spacing: f32) -> Option<usize> {
+        (0..self.scroll_max_rows).find(|&r| {
+            let last = self
+                .scroll_danmaku
+                .iter()
+                .filter(|d| d.row == r)
+                .map(|d| (d.x, d.width, d.velocity_x))
+                .chain(
+                    self.pending_scroll
+                        .values()
+                        .filter(|p| p.row == r)
+                        .map(|p| (p.x, p.width, p.velocity_x)),
+                )
+                .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+            match last {
+                None => true,
+                Some((last_x, last_width, last_vel)) => {
+                    let leave_time = (last_x + last_width + spacing) / last_vel.abs();
+                    leave_time < reach_edge_time && width > last_width + spacing + last_x
+                }
+            }
+        })
+    }
+
     fn add_scroll_danmaku(
         &mut self,
         params: TextureRenderParams,
@@ -349,39 +378,19 @@ impl DanmakwRenderer {
     ) {
         let velocity_x = -(width + text_width) / SCROLL_DURATION_MS * self.speed_factor as f32;
 
-        let target_row = if self.allow_overlay {
+        let reach_edge_time = width / velocity_x.abs();
+        let spacing = self.spacing;
+
+        let target_row = if let Some(row) =
+            self.find_scroll_row(width, reach_edge_time, spacing)
+        {
+            row
+        } else if self.allow_overlay {
             let row = self.overlay_scroll_hint % self.scroll_max_rows;
             self.overlay_scroll_hint = self.overlay_scroll_hint.wrapping_add(1);
             row
         } else {
-            let reach_edge_time = width / velocity_x.abs();
-            let spacing = self.spacing;
-
-            let Some(row) = (0..self.scroll_max_rows).find(|&r| {
-                let last = self
-                    .scroll_danmaku
-                    .iter()
-                    .filter(|d| d.row == r)
-                    .map(|d| (d.x, d.width, d.velocity_x))
-                    .chain(
-                        self.pending_scroll
-                            .values()
-                            .filter(|p| p.row == r)
-                            .map(|p| (p.x, p.width, p.velocity_x)),
-                    )
-                    .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-
-                match last {
-                    None => true,
-                    Some((last_x, last_width, last_vel)) => {
-                        let leave_time = (last_x + last_width + spacing) / last_vel.abs();
-                        leave_time < reach_edge_time && width > last_width + spacing + last_x
-                    }
-                }
-            }) else {
-                return;
-            };
-            row
+            return;
         };
 
         let id = self.next_pending_id;
