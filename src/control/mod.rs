@@ -2,6 +2,7 @@ mod format;
 mod menu;
 mod player;
 mod scale;
+mod scale_row;
 mod sidebar;
 mod toast;
 mod volume_bar;
@@ -10,6 +11,7 @@ pub use format::*;
 pub use menu::*;
 pub use player::*;
 pub use scale::*;
+pub use scale_row::*;
 pub use sidebar::*;
 pub use toast::*;
 pub use volume_bar::*;
@@ -24,6 +26,7 @@ pub fn init() {
     ControlSidebar::ensure_type();
     MenuActions::ensure_type();
     VideoScale::ensure_type();
+    ScaleRow::ensure_type();
     VolumeBar::ensure_type();
 
     if let Some(display) = gtk::gdk::Display::default() {

@@ -90,8 +90,8 @@ template $MutsumiPlayer: Adw.Bin {
                     opacity: bind danmaku_opacity.value;
                     speed-factor: bind danmaku_speed_spin.value;
                     font-size: bind font_size_spin.value;
-                    font-weight: bind font_weight_combo.selected;
-                    intensity: bind intensity_combo.selected;
+                    font-weight: bind font_weight_row.value;
+                    intensity: bind intensity_row.value;
                     spacing-factor: bind spacing_spin.value;
                     outline-px: bind outline_spin.value;
                     shadow-offset: bind shadow_spin.value;
@@ -526,11 +526,6 @@ Popover danmaku_popover {
             title: _("Danmaku");
             expanded: bind danmaku_switch.active bidirectional;
 
-            [prefix]
-            Image {
-                icon-name: "card-bulleted-symbolic";
-            }
-
             [suffix]
             Switch danmaku_switch {
                 active: true;
@@ -577,8 +572,9 @@ Popover danmaku_popover {
                 };
             }
 
-            Adw.ComboRow font_weight_combo {
+            $ScaleRow font_weight_row {
                 title: _("Font Weight");
+                value: 8;
 
                 model: StringList {
                     strings [
@@ -596,12 +592,11 @@ Popover danmaku_popover {
                         _("Ultraheavy"),
                     ]
                 };
-
-                selected: 8;
             }
 
-            Adw.ComboRow intensity_combo {
+            $ScaleRow intensity_row {
                 title: _("Danmaku Intensity");
+                value: 1;
 
                 model: StringList {
                     strings [
@@ -611,8 +606,6 @@ Popover danmaku_popover {
                         _("Allow Overlay"),
                     ]
                 };
-
-                selected: 1;
             }
 
             Adw.SpinRow spacing_spin {

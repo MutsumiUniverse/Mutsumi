@@ -45,6 +45,7 @@
     <file compressed="true" preprocess="xml-stripblanks" alias="menu_actions.ui">ui/menu_actions.ui</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="player.ui">ui/player.ui</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="shortcuts.ui">ui/shortcuts.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks" alias="scale_row.ui">ui/scale_row.ui</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="control_sidebar.ui">ui/control_sidebar.ui</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="volume_bar.ui">ui/volume_bar.ui</file>
   </gresource>

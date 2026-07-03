@@ -110,8 +110,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     <property name="opacity" bind-source="danmaku_opacity" bind-property="value" bind-flags="sync-create"/>
                     <property name="speed-factor" bind-source="danmaku_speed_spin" bind-property="value" bind-flags="sync-create"/>
                     <property name="font-size" bind-source="font_size_spin" bind-property="value" bind-flags="sync-create"/>
-                    <property name="font-weight" bind-source="font_weight_combo" bind-property="selected" bind-flags="sync-create"/>
-                    <property name="intensity" bind-source="intensity_combo" bind-property="selected" bind-flags="sync-create"/>
+                    <property name="font-weight" bind-source="font_weight_row" bind-property="value" bind-flags="sync-create"/>
+                    <property name="intensity" bind-source="intensity_row" bind-property="value" bind-flags="sync-create"/>
                     <property name="spacing-factor" bind-source="spacing_spin" bind-property="value" bind-flags="sync-create"/>
                     <property name="outline-px" bind-source="outline_spin" bind-property="value" bind-flags="sync-create"/>
                     <property name="shadow-offset" bind-source="shadow_spin" bind-property="value" bind-flags="sync-create"/>
@@ -557,11 +557,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
           <object class="AdwExpanderRow" id="expander_row">
             <property name="title" translatable="yes">Danmaku</property>
             <property name="expanded" bind-source="danmaku_switch" bind-property="active" bind-flags="sync-create|bidirectional"/>
-            <child type="prefix">
-              <object class="GtkImage">
-                <property name="icon-name">card-bulleted-symbolic</property>
-              </object>
-            </child>
             <child type="suffix">
               <object class="GtkSwitch" id="danmaku_switch">
                 <property name="active">true</property>
@@ -615,8 +610,9 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               </object>
             </child>
             <child>
-              <object class="AdwComboRow" id="font_weight_combo">
+              <object class="ScaleRow" id="font_weight_row">
                 <property name="title" translatable="yes">Font Weight</property>
+                <property name="value">8</property>
                 <property name="model">
                   <object class="GtkStringList">
                     <items>
@@ -635,12 +631,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     </items>
                   </object>
                 </property>
-                <property name="selected">8</property>
               </object>
             </child>
             <child>
-              <object class="AdwComboRow" id="intensity_combo">
+              <object class="ScaleRow" id="intensity_row">
                 <property name="title" translatable="yes">Danmaku Intensity</property>
+                <property name="value">1</property>
                 <property name="model">
                   <object class="GtkStringList">
                     <items>
@@ -651,7 +647,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     </items>
                   </object>
                 </property>
-                <property name="selected">1</property>
               </object>
             </child>
             <child>

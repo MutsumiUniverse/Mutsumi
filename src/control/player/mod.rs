@@ -5,7 +5,10 @@ use gtk::{Builder, CompositeTemplate, PopoverMenu, gdk::Rectangle, gio, glib};
 use crate::{
     ChapterList, DanmakuTrack, ListenEvent, MPV_EVENT_CHANNEL, MpvActor, MpvTrack, MpvTracks,
     MutsumiVideoPlayer, PlayParams, TrackKind, TrackSelection,
-    control::{ControlSidebar, GlobalToast, MenuActions, VideoScale, VolumeBar, format_duration},
+    control::{
+        ControlSidebar, GlobalToast, MenuActions, ScaleRow, VideoScale, VolumeBar,
+        format_duration,
+    },
 };
 
 /// Minimum interval between two pointer motion events that reveal the
@@ -122,6 +125,7 @@ mod imp {
             MutsumiVideoPlayer::ensure_type();
             ControlSidebar::ensure_type();
             VideoScale::ensure_type();
+            ScaleRow::ensure_type();
             VolumeBar::ensure_type();
 
             klass.bind_template();
