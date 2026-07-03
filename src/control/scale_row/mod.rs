@@ -26,6 +26,33 @@ mod imp {
         pub value: Cell<f64>,
     }
 
+    #[glib::object_subclass]
+    impl ObjectSubclass for ScaleRow {
+        const NAME: &'static str = "ScaleRow";
+        type Type = super::ScaleRow;
+        type ParentType = adw::PreferencesRow;
+
+        fn class_init(klass: &mut Self::Class) {
+            Self::bind_template(klass);
+        }
+
+        fn instance_init(obj: &InitializingObject<Self>) {
+            obj.init_template();
+        }
+    }
+
+    #[glib::derived_properties]
+    impl ObjectImpl for ScaleRow {
+        fn constructed(&self) {
+            self.parent_constructed();
+            self.refresh_scale();
+        }
+    }
+
+    impl WidgetImpl for ScaleRow {}
+    impl ListBoxRowImpl for ScaleRow {}
+    impl PreferencesRowImpl for ScaleRow {}
+
     impl ScaleRow {
         fn set_model(&self, model: Option<gtk::StringList>) {
             self.model.replace(model);
@@ -54,7 +81,12 @@ mod imp {
         fn refresh_scale(&self) {
             self.scale.clear_marks();
 
-            let count = self.model.borrow().as_ref().map(|model| model.n_items()).unwrap_or(0);
+            let count = self
+                .model
+                .borrow()
+                .as_ref()
+                .map(|model| model.n_items())
+                .unwrap_or(0);
 
             let upper = count.saturating_sub(1) as f64;
             self.adjustment.set_lower(0.0);
@@ -102,33 +134,6 @@ mod imp {
             self.current_label.set_label(&text);
         }
     }
-
-    #[glib::object_subclass]
-    impl ObjectSubclass for ScaleRow {
-        const NAME: &'static str = "ScaleRow";
-        type Type = super::ScaleRow;
-        type ParentType = adw::PreferencesRow;
-
-        fn class_init(klass: &mut Self::Class) {
-            Self::bind_template(klass);
-        }
-
-        fn instance_init(obj: &InitializingObject<Self>) {
-            obj.init_template();
-        }
-    }
-
-    #[glib::derived_properties]
-    impl ObjectImpl for ScaleRow {
-        fn constructed(&self) {
-            self.parent_constructed();
-            self.refresh_scale();
-        }
-    }
-
-    impl WidgetImpl for ScaleRow {}
-    impl ListBoxRowImpl for ScaleRow {}
-    impl PreferencesRowImpl for ScaleRow {}
 }
 
 glib::wrapper! {

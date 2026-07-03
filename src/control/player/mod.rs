@@ -6,8 +6,7 @@ use crate::{
     ChapterList, DanmakuTrack, ListenEvent, MPV_EVENT_CHANNEL, MpvActor, MpvTrack, MpvTracks,
     MutsumiVideoPlayer, PlayParams, TrackKind, TrackSelection,
     control::{
-        ControlSidebar, GlobalToast, MenuActions, ScaleRow, VideoScale, VolumeBar,
-        format_duration,
+        ControlSidebar, GlobalToast, MenuActions, ScaleRow, VideoScale, VolumeBar, format_duration,
     },
 };
 
@@ -396,16 +395,19 @@ impl MutsumiPlayer {
     fn update_seeking(&self, seeking: bool, time_millis: f64) {
         self.imp().loading_box.set_visible(seeking);
 
-        if self.paused() {
+        if !self.imp().danmaku_switch.is_active() {
             return;
         }
 
-        if self.imp().danmaku_switch.is_active() {
-            self.imp().danmakw.set_paused(seeking);
+        if seeking {
+            self.imp().danmakw.set_paused(true);
+            return;
         }
 
-        if !seeking {
-            self.imp().danmakw.preroll_seek(time_millis);
+        self.imp().danmakw.preroll_seek(time_millis);
+
+        if !self.paused() {
+            self.imp().danmakw.set_paused(false);
         }
     }
 

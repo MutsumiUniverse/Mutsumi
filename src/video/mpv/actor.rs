@@ -253,10 +253,10 @@ impl SendMpv {
                         }
                     }
                     "pause" => {
-                        if let PropertyData::Flag(pause) = change {
-                            if self.has_file.get() || pause {
-                                let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Pause(pause));
-                            }
+                        if let PropertyData::Flag(pause) = change
+                            && (self.has_file.get() || pause)
+                        {
+                            let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Pause(pause));
                         }
                     }
                     "cache-speed" => {
