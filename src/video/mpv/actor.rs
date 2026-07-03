@@ -8,7 +8,7 @@ use libmpv2::{
     Format, Mpv,
     events::{Event, PropertyData},
 };
-use mutsumi_utils::spawn_tokio_blocking;
+use mutsumi_prelude::spawn_tokio_blocking;
 use once_cell::sync::Lazy;
 use serde_json::Value;
 
