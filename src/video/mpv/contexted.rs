@@ -115,6 +115,44 @@ impl ContextedMPV {
         self.mpv.command("loadfile", &[url, "replace"]);
     }
 
+    pub fn set_playlist(&self, urls: &[String]) {
+        if urls.is_empty() {
+            self.mpv.command("playlist-clear", &[]);
+            self.mpv.command("stop", &[]);
+            return;
+        }
+
+        arm_mpv_proxy();
+
+        let mut iter = urls.iter();
+        if let Some(first) = iter.next() {
+            self.mpv.command("loadfile", &[first, "replace"]);
+        }
+        for url in iter {
+            self.mpv.command("loadfile", &[url, "append"]);
+        }
+    }
+
+    pub fn set_playlist_pos(&self, pos: i64) {
+        arm_mpv_proxy();
+        self.mpv.set_property("playlist-pos", pos);
+    }
+
+    pub fn playlist_add(&self, url: &str, index: i64) {
+        arm_mpv_proxy();
+        self.mpv
+            .command("loadfile", &[url, "insert-at", &index.to_string()]);
+    }
+
+    pub fn playlist_remove(&self, index: i64) {
+        self.mpv.command("playlist-remove", &[&index.to_string()]);
+    }
+
+    pub fn playlist_move(&self, from: i64, to: i64) {
+        self.mpv
+            .command("playlist-move", &[&from.to_string(), &to.to_string()]);
+    }
+
     pub fn set_start_time(&self, second: u64) {
         self.mpv.set_property("start", format!("{}", second));
     }

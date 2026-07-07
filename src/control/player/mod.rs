@@ -1,10 +1,18 @@
+use std::rc::Rc;
+
 use adw::{prelude::*, subclass::prelude::*};
 use glib::spawn_future_local;
 use gtk::{Builder, CompositeTemplate, PopoverMenu, gdk::Rectangle, gio, glib};
 
+mod item;
+mod playlistop;
+
+pub use item::PlaylistItem;
+use playlistop::*;
+
 use crate::{
     ChapterList, DanmakuTrack, ListenEvent, MPV_EVENT_CHANNEL, MpvActor, MpvTrack, MpvTracks,
-    MutsumiVideoPlayer, PlayParams, TrackKind, TrackSelection,
+    MutsumiVideoPlayer, PlayParams, Playlist, TrackKind, TrackSelection,
     control::{
         ControlSidebar, GlobalToast, MenuActions, ScaleRow, VideoScale, VolumeBar, format_duration,
     },
@@ -18,10 +26,13 @@ const PREV_CHAPTER_KEYVAL: u32 = 65366; // Page_Down
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
+    use std::rc::Rc;
 
     use glib::subclass::InitializingObject;
 
     use super::*;
+
+    type AboutHandler = dyn Fn(&super::MutsumiPlayer) + 'static;
 
     #[derive(Default, CompositeTemplate, glib::Properties)]
     #[template(resource = "/io/github/mutsumiuniverse/mutsumi/ui/player.ui")]
@@ -103,6 +114,10 @@ mod imp {
         pub menu_actions: MenuActions,
         pub context_popover: RefCell<Option<PopoverMenu>>,
 
+        pub context_menu: RefCell<Option<gio::Menu>>,
+        pub about_handler: RefCell<Option<Rc<AboutHandler>>>,
+        pub about_item_added: Cell<bool>,
+
         pub fade_timeout: RefCell<Option<glib::source::SourceId>>,
         pub x: Cell<f64>,
         pub y: Cell<f64>,
@@ -110,8 +125,24 @@ mod imp {
 
         pub shortcuts_dialog: OnceCell<adw::ShortcutsDialog>,
 
+        #[property(get = Self::playlist_store, type = gio::ListStore)]
+        pub playlist_store: PlaylistStore,
+
+        pub playlist_updating: Cell<bool>,
+        pub playlist_flush_scheduled: Cell<bool>,
+        pub playlist_mirror: RefCell<Vec<String>>,
+
         #[property(get, set)]
         pub popover_count: Cell<i32>,
+    }
+
+    #[derive(Debug)]
+    pub struct PlaylistStore(pub gio::ListStore);
+
+    impl Default for PlaylistStore {
+        fn default() -> Self {
+            Self(gio::ListStore::new::<super::PlaylistItem>())
+        }
     }
 
     #[glib::object_subclass]
@@ -155,6 +186,9 @@ mod imp {
             klass.install_action("player.show-shortcuts", None, |obj, _, _| {
                 obj.show_shortcuts_dialog();
             });
+            klass.install_action("player.show-about", None, |obj, _, _| {
+                obj.on_show_about();
+            });
             klass.install_action("player.toggle-fullscreen", None, |obj, _, _| {
                 if let Some(window) = obj.root().and_downcast::<gtk::Window>() {
                     window.set_fullscreened(!window.is_fullscreen());
@@ -189,6 +223,7 @@ mod imp {
             });
 
             obj.listen_events();
+            obj.setup_playlist_store();
         }
 
         fn dispose(&self) {
@@ -202,6 +237,10 @@ mod imp {
     impl BinImpl for MutsumiPlayer {}
 
     impl MutsumiPlayer {
+        pub(super) fn playlist_store(&self) -> gio::ListStore {
+            self.playlist_store.0.clone()
+        }
+
         fn set_fullscreened(&self, fullscreened: bool) {
             if fullscreened == self.fullscreened.get() {
                 return;
@@ -292,6 +331,11 @@ impl MutsumiPlayer {
         self.imp().video.stop();
     }
 
+    pub fn set_playlist_pos(&self, pos: i64) {
+        self.imp().overlay_status.set_visible(false);
+        self.imp().video.set_playlist_pos(pos);
+    }
+
     pub fn reveal_controls(&self, reveal: bool) {
         self.set_reveal_overlay(reveal);
         if reveal {
@@ -302,7 +346,7 @@ impl MutsumiPlayer {
     fn setup_context_menu(&self) {
         let imp = self.imp();
         let builder = Builder::from_resource("/io/github/mutsumiuniverse/mutsumi/ui/menu.ui");
-        let Some(menu) = builder.object::<gio::MenuModel>("player-menu") else {
+        let Some(menu) = builder.object::<gio::Menu>("player-menu") else {
             tracing::error!("Failed to load player context menu model");
             return;
         };
@@ -315,6 +359,32 @@ impl MutsumiPlayer {
         popover.set_parent(self);
         popover.add_child(&imp.menu_actions, "menu-actions");
         imp.context_popover.replace(Some(popover));
+        imp.context_menu.replace(Some(menu));
+    }
+
+    pub fn set_about_handler_with_label<F>(&self, label: &str, handler: F)
+    where
+        F: Fn(&MutsumiPlayer) + 'static,
+    {
+        let imp = self.imp();
+        imp.about_handler.replace(Some(Rc::new(handler)));
+
+        if !imp.about_item_added.replace(true) {
+            let Some(menu) = imp.context_menu.borrow().clone() else {
+                tracing::error!("Context menu is not initialized; cannot add About item");
+                return;
+            };
+            let section = gio::Menu::new();
+            section.append(Some(label), Some("win.about"));
+            menu.append_section(None, &section);
+        }
+    }
+
+    fn on_show_about(&self) {
+        let handler = self.imp().about_handler.borrow().clone();
+        if let Some(handler) = handler {
+            handler(self);
+        }
     }
 
     fn listen_events(&self) {
@@ -370,6 +440,9 @@ impl MutsumiPlayer {
                         }
                         ListenEvent::ChapterList(value) => {
                             obj.on_chapter_list(value);
+                        }
+                        ListenEvent::Playlist(value) => {
+                            obj.on_playlist(value);
                         }
                     }
                 }
@@ -443,14 +516,6 @@ impl MutsumiPlayer {
         imp.control_sidebar.set_playback_speed(value);
     }
 
-    fn shortcuts_dialog_is_presented(&self) -> bool {
-        let Some(dialog) = self.imp().shortcuts_dialog.get() else {
-            return false;
-        };
-
-        dialog.parent().is_some()
-    }
-
     fn show_shortcuts_dialog(&self) {
         let dialog = self
             .imp()
@@ -476,6 +541,75 @@ impl MutsumiPlayer {
 
     fn on_chapter_list(&self, value: ChapterList) {
         self.imp().video_scale.set_chapter_list(value);
+    }
+
+    fn setup_playlist_store(&self) {
+        let store = self.imp().playlist_store();
+
+        store.connect_items_changed(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            move |_, _, _, _| obj.schedule_playlist_flush()
+        ));
+    }
+
+    fn on_playlist(&self, playlist: Playlist) {
+        let imp = self.imp();
+        let store = imp.playlist_store();
+
+        imp.playlist_mirror.replace(
+            playlist
+                .0
+                .iter()
+                .map(|entry| entry.filename.clone())
+                .collect(),
+        );
+
+        imp.playlist_updating.set(true);
+        reconcile_store(&store, playlist.0);
+        imp.playlist_updating.set(false);
+    }
+
+    fn schedule_playlist_flush(&self) {
+        let imp = self.imp();
+        if imp.playlist_updating.get() || imp.playlist_flush_scheduled.get() {
+            return;
+        }
+        imp.playlist_flush_scheduled.set(true);
+
+        glib::idle_add_local_once(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            move || obj.flush_playlist_to_mpv()
+        ));
+    }
+
+    fn flush_playlist_to_mpv(&self) {
+        let imp = self.imp();
+        imp.playlist_flush_scheduled.set(false);
+
+        let store = imp.playlist_store();
+        let new: Vec<String> = store
+            .iter::<PlaylistItem>()
+            .filter_map(Result::ok)
+            .map(|item| item.filename())
+            .filter(|filename| !filename.is_empty())
+            .collect();
+        let old = imp.playlist_mirror.borrow().clone();
+
+        for op in diff_playlist(&old, &new) {
+            match op {
+                PlaylistOp::Move { from, to } => imp.video.playlist_move(from, to),
+                PlaylistOp::Remove(index) => imp.video.playlist_remove(index),
+                PlaylistOp::Insert { index, url } => imp.video.playlist_add(&url, index),
+                PlaylistOp::Rebuild => {
+                    imp.video.set_playlist(&new);
+                    break;
+                }
+            }
+        }
+
+        imp.playlist_mirror.replace(new);
     }
 
     fn on_track_list(&self, value: MpvTracks) {
@@ -779,7 +913,10 @@ impl MutsumiPlayer {
             return false;
         }
 
-        if self.shortcuts_dialog_is_presented() {
+        if let Some(window) = self.root().and_downcast::<gtk::Window>()
+            && let Some(focus) = gtk::prelude::GtkWindowExt::focus(&window)
+            && focus.ancestor(adw::Dialog::static_type()).is_some()
+        {
             return false;
         }
 

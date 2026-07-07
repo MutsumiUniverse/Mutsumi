@@ -137,6 +137,26 @@ impl MutsumiVideoPlayer {
         self.backend_ref().load_video(url);
     }
 
+    pub fn set_playlist(&self, urls: &[String]) {
+        self.backend_ref().set_playlist(urls);
+    }
+
+    pub fn set_playlist_pos(&self, pos: i64) {
+        self.backend_ref().set_playlist_pos(pos);
+    }
+
+    pub fn playlist_add(&self, url: &str, index: i64) {
+        self.backend_ref().playlist_add(url, index);
+    }
+
+    pub fn playlist_remove(&self, index: i64) {
+        self.backend_ref().playlist_remove(index);
+    }
+
+    pub fn playlist_move(&self, from: i64, to: i64) {
+        self.backend_ref().playlist_move(from, to);
+    }
+
     pub fn add_sub(&self, url: &str) {
         self.backend_ref().add_sub(url);
     }

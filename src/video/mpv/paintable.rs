@@ -190,6 +190,26 @@ impl MutsumiVideoSink {
         ));
     }
 
+    pub fn set_playlist(&self, urls: &[String]) {
+        self.mpv().set_playlist(urls);
+    }
+
+    pub fn set_playlist_pos(&self, pos: i64) {
+        self.mpv().set_playlist_pos(pos);
+    }
+
+    pub fn playlist_add(&self, url: &str, index: i64) {
+        self.mpv().playlist_add(url, index);
+    }
+
+    pub fn playlist_remove(&self, index: i64) {
+        self.mpv().playlist_remove(index);
+    }
+
+    pub fn playlist_move(&self, from: i64, to: i64) {
+        self.mpv().playlist_move(from, to);
+    }
+
     pub fn press_key(&self, key: u32, state: gtk::gdk::ModifierType) {
         self.mpv().press_key(key, state)
     }

@@ -146,6 +146,7 @@ impl MpvActor {
         mpv.observe_property("volume", Format::Int64, 7)?;
         mpv.observe_property("chapter-list", Format::String, 8)?;
         mpv.observe_property("speed", Format::Double, 9)?;
+        mpv.observe_property("playlist", Format::String, 10)?;
 
         let mpv = SendMpv {
             mpv: Arc::new(mpv),
@@ -276,6 +277,13 @@ impl SendMpv {
                             let _ = MPV_EVENT_CHANNEL
                                 .tx
                                 .send(ListenEvent::ChapterList(node_to_chapter_list(node)));
+                        }
+                    }
+                    "playlist" => {
+                        if let PropertyData::Str(node) = change {
+                            let _ = MPV_EVENT_CHANNEL
+                                .tx
+                                .send(ListenEvent::Playlist(node_to_playlist(node)));
                         }
                     }
                     "volume" => {
@@ -412,6 +420,62 @@ impl IntoIterator for ChapterList {
 pub struct Chapter {
     pub title: String,
     pub time: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlaylistEntry {
+    pub filename: String,
+    pub title: String,
+    pub current: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Playlist(pub Vec<PlaylistEntry>);
+
+impl IntoIterator for Playlist {
+    type Item = PlaylistEntry;
+    type IntoIter = std::vec::IntoIter<PlaylistEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+fn node_to_playlist(value: &str) -> Playlist {
+    let mut entries = Vec::new();
+
+    let Ok(json) = serde_json::from_str::<Value>(value) else {
+        return Playlist(entries);
+    };
+    let Some(array) = json.as_array() else {
+        return Playlist(entries);
+    };
+
+    for node in array {
+        let Some(obj) = node.as_object() else {
+            continue;
+        };
+
+        let filename = obj
+            .get("filename")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let title = obj
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let current = obj.get("current").and_then(Value::as_bool).unwrap_or(false);
+
+        entries.push(PlaylistEntry {
+            filename,
+            title,
+            current,
+        });
+    }
+
+    Playlist(entries)
 }
 
 #[derive(Debug)]

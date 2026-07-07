@@ -40,7 +40,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     </section>
     <section>
       <item>
-        <attribute name="label" translatable="yes">_Keyboard shortcuts</attribute>
+        <attribute name="label" translatable="yes">Keyboard shortcuts</attribute>
         <attribute name="action">player.show-shortcuts</attribute>
         <attribute name="accel">F1</attribute>
       </item>

@@ -32,6 +32,7 @@ pub enum ListenEvent {
     TimePos(i64),
     PausedForCache(bool, TimeMillis),
     ChapterList(ChapterList),
+    Playlist(Playlist),
 }
 
 pub struct MPVEventChannel {
