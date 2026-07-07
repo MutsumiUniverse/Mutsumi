@@ -14,7 +14,7 @@ mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
-    #[template(resource = "/io/github/mutsumi/ui/control_sidebar.ui")]
+    #[template(resource = "/io/github/mutsumiuniverse/mutsumi/ui/control_sidebar.ui")]
     #[properties(wrapper_type = super::ControlSidebar)]
     pub struct ControlSidebar {
         #[property(get, set = Self::set_player, explicit_notify, nullable)]

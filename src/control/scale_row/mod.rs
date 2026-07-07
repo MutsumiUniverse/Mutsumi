@@ -9,7 +9,7 @@ mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
-    #[template(resource = "/io/github/mutsumi/ui/scale_row.ui")]
+    #[template(resource = "/io/github/mutsumiuniverse/mutsumi/ui/scale_row.ui")]
     #[properties(wrapper_type = super::ScaleRow)]
     pub struct ScaleRow {
         #[template_child]

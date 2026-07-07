@@ -24,7 +24,7 @@ mod imp {
     use super::*;
 
     #[derive(Default, CompositeTemplate, glib::Properties)]
-    #[template(resource = "/io/github/mutsumi/ui/player.ui")]
+    #[template(resource = "/io/github/mutsumiuniverse/mutsumi/ui/player.ui")]
     #[properties(wrapper_type = super::MutsumiPlayer)]
     pub struct MutsumiPlayer {
         #[property(get, set)]
@@ -301,7 +301,7 @@ impl MutsumiPlayer {
 
     fn setup_context_menu(&self) {
         let imp = self.imp();
-        let builder = Builder::from_resource("/io/github/mutsumi/ui/menu.ui");
+        let builder = Builder::from_resource("/io/github/mutsumiuniverse/mutsumi/ui/menu.ui");
         let Some(menu) = builder.object::<gio::MenuModel>("player-menu") else {
             tracing::error!("Failed to load player context menu model");
             return;
@@ -461,7 +461,7 @@ impl MutsumiPlayer {
     }
 
     fn create_shortcuts_dialog(&self) -> adw::ShortcutsDialog {
-        let builder = Builder::from_resource("/io/github/mutsumi/ui/shortcuts.ui");
+        let builder = Builder::from_resource("/io/github/mutsumiuniverse/mutsumi/ui/shortcuts.ui");
         builder
             .object::<adw::ShortcutsDialog>("shortcuts_dialog")
             .expect("Failed to load shortcuts dialog")

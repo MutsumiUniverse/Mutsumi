@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const APP_RESOURCE_PREFIX: &str = "/io/github/mutsumi";
+const APP_RESOURCE_PREFIX: &str = "/io/github/mutsumiuniverse/mutsumi";
 
 fn main() {
     on_build();

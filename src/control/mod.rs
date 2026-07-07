@@ -30,7 +30,7 @@ pub fn init() {
     VolumeBar::ensure_type();
 
     if let Some(display) = gtk::gdk::Display::default() {
-        gtk::IconTheme::for_display(&display).add_resource_path("/io/github/mutsumi/icons");
+        gtk::IconTheme::for_display(&display).add_resource_path("/io/github/mutsumiuniverse/mutsumi/icons");
 
         let provider = gtk::CssProvider::new();
         provider.load_from_string(CONTROL_CSS);
