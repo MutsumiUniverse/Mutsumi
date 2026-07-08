@@ -7,6 +7,10 @@ template $MutsumiPlayer: Adw.Bin {
     focusable: true;
     show-sidebar: bind split_view.show-sidebar bidirectional;
 
+    styles [
+        "mutsumi-player",
+    ]
+
     EventControllerMotion {
         motion => $on_motion() swapped;
         leave => $on_leave() swapped;

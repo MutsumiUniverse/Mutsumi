@@ -51,4 +51,34 @@ impl PlaylistItem {
             .property("current", current)
             .build()
     }
+
+    pub fn with_full_uri(uri: &str, current: bool) -> Self {
+        let title = title_from_uri(uri);
+        Self::with_values(uri, &title, current)
+    }
+}
+
+pub fn title_from_uri(uri: &str) -> String {
+    if let Ok(parsed) = glib::Uri::parse(uri, glib::UriFlags::NONE) {
+        let path = parsed.path();
+        if let Some(name) = basename(&path) {
+            return name.to_owned();
+        }
+
+        if !path.is_empty() {
+            return path.to_string();
+        }
+        if let Some(host) = parsed.host()
+            && !host.is_empty()
+        {
+            return host.to_string();
+        }
+        return uri.to_owned();
+    }
+
+    basename(uri).unwrap_or(uri).to_owned()
+}
+
+fn basename(path: &str) -> Option<&str> {
+    path.rsplit('/').find(|segment| !segment.is_empty())
 }

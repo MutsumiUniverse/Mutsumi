@@ -8,6 +8,7 @@ mod item;
 mod playlistop;
 
 pub use item::PlaylistItem;
+pub use item::title_from_uri;
 use playlistop::*;
 
 use crate::{
@@ -27,6 +28,7 @@ const PREV_CHAPTER_KEYVAL: u32 = 65366; // Page_Down
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
     use std::rc::Rc;
+    use std::sync::OnceLock;
 
     use glib::subclass::InitializingObject;
 
@@ -203,6 +205,12 @@ mod imp {
 
     #[glib::derived_properties]
     impl ObjectImpl for MutsumiPlayer {
+        fn signals() -> &'static [glib::subclass::Signal] {
+            static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
+            SIGNALS
+                .get_or_init(|| vec![glib::subclass::Signal::builder("playlist-updated").build()])
+        }
+
         fn constructed(&self) {
             self.parent_constructed();
 
@@ -237,7 +245,7 @@ mod imp {
     impl BinImpl for MutsumiPlayer {}
 
     impl MutsumiPlayer {
-        pub(super) fn playlist_store(&self) -> gio::ListStore {
+        pub fn playlist_store(&self) -> gio::ListStore {
             self.playlist_store.0.clone()
         }
 
@@ -568,6 +576,16 @@ impl MutsumiPlayer {
         imp.playlist_updating.set(true);
         reconcile_store(&store, playlist.0);
         imp.playlist_updating.set(false);
+
+        self.emit_by_name::<()>("playlist-updated", &[]);
+    }
+
+    pub fn connect_playlist_updated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "playlist-updated",
+            false,
+            glib::closure_local!(move |obj: Self| f(&obj)),
+        )
     }
 
     fn schedule_playlist_flush(&self) {
@@ -628,7 +646,16 @@ impl MutsumiPlayer {
 
         if let Some(danmaku_track) = value.danmaku_track {
             self.bind_danmaku(danmaku_track);
+        } else {
+            self.clear_danmaku();
         }
+    }
+
+    fn clear_danmaku(&self) {
+        let imp = self.imp();
+        imp.danmaku_switch.set_active(false);
+        imp.danmaku_switch.set_sensitive(false);
+        imp.danmakw.clear_danmaku();
     }
 
     fn bind_tracks(&self, tracks: Vec<MpvTrack>, listbox: &gtk::ListBox, kind: TrackKind) {
@@ -952,6 +979,10 @@ impl MutsumiPlayer {
                         let Ok(danmaku) = crate::parse_bilibili_xml(&content) else {
                             return;
                         };
+
+                        obj.imp().danmaku_switch.set_active(true);
+                        obj.imp().danmaku_switch.set_sensitive(true);
+
                         obj.imp().danmakw.load_danmaku(danmaku);
                     }
                     Err(e) => {
