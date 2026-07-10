@@ -137,6 +137,22 @@ impl MutsumiVideoPlayer {
         self.backend_ref().load_video(url);
     }
 
+    pub fn set_loop_playlist(&self, loop_: &str) {
+        self.backend_ref().set_loop_playlist(loop_);
+    }
+
+    pub fn set_loop_file(&self, loop_: &str) {
+        self.backend_ref().set_loop_file(loop_);
+    }
+
+    pub fn playlist_shuffle(&self) {
+        self.backend_ref().playlist_shuffle();
+    }
+
+    pub fn playlist_unshuffle(&self) {
+        self.backend_ref().playlist_unshuffle();
+    }
+
     pub fn set_playlist(&self, urls: &[String]) {
         self.backend_ref().set_playlist(urls);
     }

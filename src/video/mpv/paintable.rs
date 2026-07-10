@@ -190,6 +190,22 @@ impl MutsumiVideoSink {
         ));
     }
 
+    pub fn set_loop_playlist(&self, loop_: &str) {
+        self.mpv().set_loop_playlist(loop_);
+    }
+
+    pub fn set_loop_file(&self, loop_: &str) {
+        self.mpv().set_loop_file(loop_);
+    }
+
+    pub fn playlist_shuffle(&self) {
+        self.mpv().playlist_shuffle();
+    }
+
+    pub fn playlist_unshuffle(&self) {
+        self.mpv().playlist_unshuffle();
+    }
+
     pub fn set_playlist(&self, urls: &[String]) {
         self.mpv().set_playlist(urls);
     }

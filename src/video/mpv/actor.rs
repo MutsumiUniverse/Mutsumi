@@ -58,6 +58,12 @@ impl From<String> for MpvValue {
     }
 }
 
+impl From<&str> for MpvValue {
+    fn from(val: &str) -> Self {
+        MpvValue::String(val.to_string())
+    }
+}
+
 impl MpvValue {
     pub fn set_on(&self, mpv: &Mpv, property: &str) -> libmpv2::Result<()> {
         match self {

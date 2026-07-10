@@ -138,6 +138,22 @@ impl ContextedMPV {
         self.mpv.set_property("playlist-pos", pos);
     }
 
+    pub fn set_loop_playlist(&self, loop_: &str) {
+        self.mpv.set_property("loop-playlist", loop_);
+    }
+
+    pub fn set_loop_file(&self, loop_: &str) {
+        self.mpv.set_property("loop-file", loop_);
+    }
+
+    pub fn playlist_shuffle(&self) {
+        self.mpv.command("playlist-shuffle", &[]);
+    }
+
+    pub fn playlist_unshuffle(&self) {
+        self.mpv.command("playlist-unshuffle", &[]);
+    }
+
     pub fn playlist_add(&self, url: &str, index: i64) {
         arm_mpv_proxy();
         self.mpv
