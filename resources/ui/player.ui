@@ -37,7 +37,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <property name="max-sidebar-width">400</property>
             <property name="min-sidebar-width">320</property>
             <property name="sidebar">
-              <object class="AdwToolbarView">
+              <object class="AdwToolbarView" id="sidebar">
                 <child type="top">
                   <object class="AdwHeaderBar">
                     <property name="show-end-title-buttons">false</property>
@@ -536,6 +536,19 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                         </style>
                       </object>
                     </child>
+                  </object>
+                </child>
+                <child type="overlay">
+                  <object class="GtkRevealer" id="drag_revealer">
+                    <property name="reveal-child">false</property>
+                    <property name="transition-type">1</property>
+                    <property name="transition-duration">250</property>
+                    <binding name="visible">
+                      <closure function="revealer_visible" type="gboolean">
+                        <lookup name="reveal-child" type="GtkRevealer">drag_revealer</lookup>
+                        <lookup name="child-revealed" type="GtkRevealer">drag_revealer</lookup>
+                      </closure>
+                    </binding>
                   </object>
                 </child>
               </object>

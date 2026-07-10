@@ -30,7 +30,7 @@ template $MutsumiPlayer: Adw.Bin {
             max-sidebar-width: 400;
             min-sidebar-width: 320;
 
-            sidebar: Adw.ToolbarView {
+            sidebar: Adw.ToolbarView sidebar {
                 [top]
                 Adw.HeaderBar {
                     show-end-title-buttons: false;
@@ -508,6 +508,17 @@ template $MutsumiPlayer: Adw.Bin {
                             "mpv-bottom-bar",
                         ]
                     }
+                }
+
+                [overlay]
+                Revealer drag_revealer {
+                    reveal-child: false;
+                    transition-type: crossfade;
+                    transition-duration: 250;
+                    visible: bind $revealer_visible(
+                        drag_revealer.reveal-child,
+                        drag_revealer.child-revealed
+                    ) as <bool>;
                 }
             };
         }

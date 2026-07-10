@@ -52,6 +52,9 @@ mod imp {
         #[template_child]
         pub toast_overlay: TemplateChild<adw::ToastOverlay>,
 
+        #[template_child]
+        pub sidebar: TemplateChild<adw::ToolbarView>,
+
         #[property(get, set)]
         pub show_sidebar: Cell<bool>,
 
@@ -106,6 +109,9 @@ mod imp {
 
         #[template_child]
         pub overlay_status: TemplateChild<adw::Bin>,
+
+        #[template_child]
+        pub drag_revealer: TemplateChild<gtk::Revealer>,
 
         #[template_child]
         pub danmakw: TemplateChild<crate::Danmakw>,
@@ -1002,6 +1008,14 @@ impl MutsumiPlayer {
         self.imp().playlist_stack_page.get()
     }
 
+    pub fn drag_revealer(&self) -> gtk::Revealer {
+        self.imp().drag_revealer.get()
+    }
+
+    pub fn toolbar_view(&self) -> adw::ToolbarView {
+        self.imp().sidebar.get()
+    }
+
     pub fn danmakw(&self) -> crate::Danmakw {
         self.imp().danmakw.get()
     }
@@ -1014,6 +1028,11 @@ impl MutsumiPlayer {
     #[template_callback]
     fn on_popover_closed(&self) {
         self.set_popover_count((self.popover_count() - 1).max(0));
+    }
+
+    #[template_callback]
+    fn revealer_visible(&self, reveal_child: bool, child_revealed: bool) -> bool {
+        reveal_child || child_revealed
     }
 }
 
