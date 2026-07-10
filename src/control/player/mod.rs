@@ -119,6 +119,9 @@ mod imp {
         #[template_child]
         pub danmaku_switch: TemplateChild<gtk::Switch>,
 
+        #[template_child]
+        pub content_overlay: TemplateChild<gtk::Overlay>,
+
         pub menu_actions: MenuActions,
         pub context_popover: RefCell<Option<PopoverMenu>>,
 
@@ -1010,6 +1013,10 @@ impl MutsumiPlayer {
 
     pub fn drag_revealer(&self) -> gtk::Revealer {
         self.imp().drag_revealer.get()
+    }
+
+    pub fn content_overlay(&self) -> gtk::Overlay {
+        self.imp().content_overlay.get()
     }
 
     pub fn toolbar_view(&self) -> adw::ToolbarView {
