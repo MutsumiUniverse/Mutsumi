@@ -106,7 +106,8 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 [[package]]
 name = "danmakw"
 version = "0.1.0"
-source = "git+https://github.com/MutsumiUniverse/Danmakw.git#834db8594aba42d7e4c7a6deb29eb0b6ca5bbd9f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b0f9b6fa8d3540b9d328c0960e37988ad1294b452610445eb79bee193fc1d34"
 dependencies = [
  "cairo-rs",
  "flume",
@@ -843,7 +844,8 @@ dependencies = [
 [[package]]
 name = "mutsumi-prelude"
 version = "0.1.0"
-source = "git+https://github.com/MutsumiUniverse/Mutsumi-Prelude.git#abb15843237e8a9163af4b10be3a628c4bbe4841"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f7431598159eb70bb0165618b40928b7482474d3db2a99912ff83d09c8f5642"
 dependencies = [
  "glib",
  "tokio",
