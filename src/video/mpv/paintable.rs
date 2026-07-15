@@ -270,6 +270,10 @@ impl MutsumiVideoSink {
         self.mpv().set_start_time(second);
     }
 
+    pub fn set_start(&self, second: f64) {
+        self.mpv().set_start(second);
+    }
+
     pub fn set_aid(&self, value: TrackSelection) {
         self.mpv().set_aid(value);
     }
@@ -440,6 +444,17 @@ impl MutsumiVideoSink {
 
     pub fn set_cache_secs(&self, value: f64) {
         self.mpv().mpv.set_property("cache-secs", value);
+    }
+
+    pub fn set_vo(&self, value: &str) {
+        self.mpv().mpv.set_property("vo", value.to_owned());
+    }
+
+    pub fn set_property<V>(&self, property: &str, value: V)
+    where
+        V: Into<crate::video::MpvValue>,
+    {
+        self.mpv().mpv.set_property(property, value);
     }
 
     pub fn display_stats_toggle(&self) {

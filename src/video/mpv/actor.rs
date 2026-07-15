@@ -34,6 +34,18 @@ pub enum MpvValueType {
     String,
 }
 
+impl From<i32> for MpvValue {
+    fn from(val: i32) -> Self {
+        MpvValue::I64(val as i64)
+    }
+}
+
+impl From<u32> for MpvValue {
+    fn from(val: u32) -> Self {
+        MpvValue::I64(val as i64)
+    }
+}
+
 impl From<bool> for MpvValue {
     fn from(val: bool) -> Self {
         MpvValue::Bool(val)
@@ -335,6 +347,9 @@ impl SendMpv {
                     let _ = MPV_EVENT_CHANNEL
                         .tx
                         .send(ListenEvent::PlaybackRestart(time_millis));
+                }
+                Event::FileLoaded => {
+                    let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::FileLoaded);
                 }
                 Event::EndFile(r) => {
                     self.has_file.set(false);

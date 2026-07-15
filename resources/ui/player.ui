@@ -82,10 +82,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <property name="content">
               <object class="GtkOverlay" id="content_overlay">
                 <child>
-                  <object class="MutsumiVideoPlayer" id="video">
-                    <property name="hexpand">true</property>
-                    <property name="vexpand">true</property>
-                  </object>
+                  <object class="MutsumiVideoPlayer" id="video"></object>
                 </child>
                 <child>
                   <object class="GtkGestureClick">

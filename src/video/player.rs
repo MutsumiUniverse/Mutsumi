@@ -1,7 +1,7 @@
 use glib::Object;
 use gtk::{gdk::ModifierType, glib, subclass::prelude::*};
 
-use crate::{MutsumiVideoSink, PlayParams};
+use crate::{ContextedMPV, MpvValue, MutsumiVideoSink, PlayParams};
 
 use super::backend::{BoxedFuture, TrackKind, TrackSelection};
 
@@ -118,6 +118,10 @@ impl MutsumiVideoPlayer {
         let imp = self.imp();
         &imp.backend
     }
+
+    pub fn mpv(&self) -> &ContextedMPV {
+        self.backend_ref().mpv()
+    }
 }
 
 impl MutsumiVideoPlayer {
@@ -195,6 +199,10 @@ impl MutsumiVideoPlayer {
 
     pub fn set_start_time(&self, second: u64) {
         self.backend_ref().set_start_time(second);
+    }
+
+    pub fn set_start(&self, second: f64) {
+        self.backend_ref().set_start(second);
     }
 
     pub fn set_volume(&self, value: i64) {
@@ -412,5 +420,12 @@ impl MutsumiVideoPlayer {
 
     pub fn set_cache_secs(&self, value: f64) {
         self.backend_ref().set_cache_secs(value);
+    }
+
+    pub fn set_property<V>(&self, property: &str, value: V)
+    where
+        V: Into<MpvValue>,
+    {
+        self.backend_ref().set_property(property, value);
     }
 }

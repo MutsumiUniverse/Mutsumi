@@ -20,6 +20,7 @@ pub enum ListenEvent {
     PlaybackRestart(TimeMillis),
     Eof(u32),
     StartFile,
+    FileLoaded,
     Duration(f64),
     Pause(bool),
     CacheSpeed(i64),

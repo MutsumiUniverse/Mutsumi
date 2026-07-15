@@ -425,6 +425,7 @@ impl MutsumiPlayer {
                         ListenEvent::StartFile => {
                             obj.on_start_file();
                         }
+                        ListenEvent::FileLoaded => {}
                         ListenEvent::Eof(_) => {
                             obj.update_seeking(false, 0.0);
                         }
