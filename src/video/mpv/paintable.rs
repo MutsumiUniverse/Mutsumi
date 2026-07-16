@@ -1,5 +1,5 @@
 use glib::Object;
-use gtk::{glib, subclass::prelude::*};
+use gtk::{gdk::prelude::PaintableExt, glib, subclass::prelude::*};
 use tracing::info;
 
 use crate::{
@@ -188,6 +188,18 @@ impl MutsumiVideoSink {
                 mpv.pause(false);
             }
         ));
+    }
+
+    // This would be useful for clearing the video area when stopping playback, to avoid showing the last frame.
+    pub fn push_an_empty_texture(&self) {
+        let bytes = glib::Bytes::from_static(&[0, 0, 0, 0]);
+
+        let texture = gdk::MemoryTexture::new(1, 1, gdk::MemoryFormat::R8g8b8a8, &bytes, 4);
+
+        let texture = gdk::Texture::from(texture);
+
+        self.imp().texture.replace(Some(texture));
+        self.invalidate_contents();
     }
 
     pub fn set_loop_playlist(&self, loop_: &str) {

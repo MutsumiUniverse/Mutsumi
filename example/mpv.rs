@@ -31,7 +31,7 @@ fn main() {
     glib::spawn_future_local(async move {
         glib::timeout_future(std::time::Duration::from_secs(2)).await;
         player_clone.play(&PlayParams::new(PlaySource::new_for_url(
-            "https://www.youtube.com/watch?v=LIlZCmETvsY",
+            "https://www.bilibili.com/video/BV1t5jw6bEhY",
         )));
     });
 
@@ -87,6 +87,8 @@ fn main() {
         let video_pause = video.clone();
         pause_btn.connect_clicked(move |_| {
             video_pause.command_pause();
+            video_pause.push_an_empty_texture();
+
             eprintln!("Toggle pause");
         });
 

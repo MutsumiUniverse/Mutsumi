@@ -141,6 +141,10 @@ impl MutsumiVideoPlayer {
         self.backend_ref().load_video(url);
     }
 
+    pub fn push_an_empty_texture(&self) {
+        self.backend_ref().push_an_empty_texture();
+    }
+
     pub fn set_loop_playlist(&self, loop_: &str) {
         self.backend_ref().set_loop_playlist(loop_);
     }
