@@ -52,9 +52,9 @@ impl PlaylistItem {
             .build()
     }
 
-    pub fn with_full_uri(uri: &str, current: bool) -> Self {
+    pub fn with_full_uri(uri: &str) -> Self {
         let title = title_from_uri(uri);
-        Self::with_values(uri, &title, current)
+        Self::with_values(uri, &title, false)
     }
 }
 
