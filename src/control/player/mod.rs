@@ -12,8 +12,9 @@ pub use item::title_from_uri;
 use playlistop::*;
 
 use crate::{
-    ChapterList, DanmakuTrack, ListenEvent, MPV_EVENT_CHANNEL, MpvActor, MpvTrack, MpvTracks,
-    MutsumiVideoPlayer, PlayParams, Playlist, TrackKind, TrackSelection,
+    ChapterList, Color, Danmaku, DanmakuMode, DanmakuTrack, ListenEvent, MPV_EVENT_CHANNEL,
+    MpvActor, MpvTrack, MpvTracks, MutsumiVideoPlayer, ParseError, PlayParams, Playlist, TrackKind,
+    TrackSelection,
     control::{
         ControlSidebar, GlobalToast, MenuActions, ScaleRow, VideoScale, VolumeBar, format_duration,
     },
@@ -24,6 +25,42 @@ use crate::{
 const MIN_MOTION_TIME: i64 = 100000;
 const NEXT_CHAPTER_KEYVAL: u32 = 65365; // Page_Up
 const PREV_CHAPTER_KEYVAL: u32 = 65366; // Page_Down
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum DanmakuSource {
+    #[default]
+    None,
+    MpvTrack,
+    External,
+    Live,
+}
+
+impl DanmakuSource {
+    fn label(self) -> &'static str {
+        match self {
+            Self::None => "No danmaku loaded",
+            Self::MpvTrack => "MPV track",
+            Self::External => "External",
+            Self::Live => "Live",
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum DanmakuLoadError {
+    #[error("failed to read danmaku from {uri}: {source}")]
+    Read {
+        uri: String,
+        #[source]
+        source: glib::Error,
+    },
+    #[error("danmaku content is not valid UTF-8: {0}")]
+    Utf8(#[from] std::string::FromUtf8Error),
+    #[error("failed to parse Bilibili danmaku XML: {0}")]
+    Xml(#[from] ParseError),
+    #[error("danmaku load was superseded by a newer source")]
+    Superseded,
+}
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
@@ -118,6 +155,13 @@ mod imp {
 
         #[template_child]
         pub danmaku_switch: TemplateChild<gtk::Switch>,
+        #[template_child]
+        pub danmaku_status_row: TemplateChild<adw::ActionRow>,
+
+        pub(super) danmaku_source: Cell<DanmakuSource>,
+        pub(super) danmaku_loading_source: Cell<DanmakuSource>,
+        pub danmaku_count: Cell<usize>,
+        pub danmaku_generation: Cell<u64>,
 
         #[template_child]
         pub content_overlay: TemplateChild<gtk::Overlay>,
@@ -655,17 +699,10 @@ impl MutsumiPlayer {
         );
 
         if let Some(danmaku_track) = value.danmaku_track {
-            self.bind_danmaku(danmaku_track);
+            self.load_mpv_danmaku_track(danmaku_track);
         } else {
-            self.clear_danmaku();
+            self.clear_mpv_danmaku();
         }
-    }
-
-    fn clear_danmaku(&self) {
-        let imp = self.imp();
-        imp.danmaku_switch.set_active(false);
-        imp.danmaku_switch.set_sensitive(false);
-        imp.danmakw.clear_danmaku();
     }
 
     fn bind_tracks(&self, tracks: Vec<MpvTrack>, listbox: &gtk::ListBox, kind: TrackKind) {
@@ -757,10 +794,8 @@ impl MutsumiPlayer {
     #[template_callback]
     fn on_danmaku_switch_state_set(&self, state: bool, _switch: &gtk::Switch) -> bool {
         let imp = self.imp();
-        if state {
-            if !self.paused() && !imp.loading_box.is_visible() {
-                imp.danmakw.start_rendering();
-            }
+        if state && self.has_danmaku() && !self.paused() && !imp.loading_box.is_visible() {
+            imp.danmakw.start_rendering();
         } else {
             imp.danmakw.stop_rendering();
         }
@@ -977,31 +1012,173 @@ impl MutsumiPlayer {
         surface.set_cursor(cursor.as_ref());
     }
 
-    pub fn bind_danmaku(&self, track: DanmakuTrack) {
-        let external_url = track.external_url.clone();
+    fn next_danmaku_generation(&self) -> u64 {
+        let imp = self.imp();
+        let generation = imp.danmaku_generation.get().wrapping_add(1);
+        imp.danmaku_generation.set(generation);
+        generation
+    }
 
+    fn update_danmaku_status(&self) {
+        let imp = self.imp();
+        imp.danmaku_status_row.set_subtitle(&format!(
+            "{} · {} loaded",
+            imp.danmaku_source.get().label(),
+            imp.danmaku_count.get()
+        ));
+    }
+
+    fn apply_danmaku(&self, danmaku: Vec<Danmaku>, source: DanmakuSource) {
+        let imp = self.imp();
+        let count = danmaku.len();
+        imp.danmakw.load_danmaku(danmaku);
+        imp.danmaku_source.set(source);
+        imp.danmaku_loading_source.set(DanmakuSource::None);
+        imp.danmaku_count.set(count);
+        self.update_danmaku_status();
+        self.set_danmaku_enabled(true);
+    }
+
+    async fn load_danmaku_uri_for_source(
+        &self,
+        uri: &str,
+        source: DanmakuSource,
+    ) -> Result<(), DanmakuLoadError> {
+        let generation = self.next_danmaku_generation();
+        self.imp().danmaku_loading_source.set(source);
+        let file = gio::File::for_uri(uri);
+        let (bytes, _etag) =
+            file.load_contents_future()
+                .await
+                .map_err(|source| DanmakuLoadError::Read {
+                    uri: uri.to_owned(),
+                    source,
+                })?;
+        let content = String::from_utf8(bytes.to_vec())?;
+        let danmaku = crate::parse_bilibili_xml(&content)?;
+
+        if self.imp().danmaku_generation.get() != generation {
+            return Err(DanmakuLoadError::Superseded);
+        }
+
+        self.apply_danmaku(danmaku, source);
+        Ok(())
+    }
+
+    fn load_mpv_danmaku_track(&self, track: DanmakuTrack) {
+        let uri = track.external_url;
         spawn_future_local(glib::clone!(
             #[weak(rename_to = obj)]
             self,
             async move {
-                match fetch_url_content(&external_url).await {
-                    Ok(content) => {
-                        let Ok(danmaku) = crate::parse_bilibili_xml(&content) else {
-                            return;
-                        };
-
-                        obj.imp().danmaku_switch.set_active(true);
-                        obj.imp().danmaku_switch.set_sensitive(true);
-
-                        obj.imp().danmakw.load_danmaku(danmaku);
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to load danmaku from {}: {}", external_url, e);
-                        obj.toast(format!("Failed to load danmaku: {}", e));
-                    }
+                if let Err(error) = obj
+                    .load_danmaku_uri_for_source(&uri, DanmakuSource::MpvTrack)
+                    .await
+                    && !matches!(error, DanmakuLoadError::Superseded)
+                {
+                    tracing::error!("Failed to load danmaku from {uri}: {error}");
+                    obj.toast(format!("Failed to load danmaku: {error}"));
                 }
             }
         ));
+    }
+
+    fn clear_mpv_danmaku(&self) {
+        let imp = self.imp();
+        if imp.danmaku_loading_source.get() == DanmakuSource::MpvTrack {
+            self.next_danmaku_generation();
+            imp.danmaku_loading_source.set(DanmakuSource::None);
+        }
+        if imp.danmaku_source.get() == DanmakuSource::MpvTrack {
+            self.clear_danmaku();
+        }
+    }
+
+    pub fn load_danmaku(&self, danmaku: Vec<Danmaku>) {
+        self.next_danmaku_generation();
+        self.apply_danmaku(danmaku, DanmakuSource::External);
+    }
+
+    pub fn load_bilibili_danmaku_xml(&self, xml: &str) -> Result<(), DanmakuLoadError> {
+        self.next_danmaku_generation();
+        let danmaku = crate::parse_bilibili_xml(xml)?;
+        self.apply_danmaku(danmaku, DanmakuSource::External);
+        Ok(())
+    }
+
+    pub async fn load_bilibili_danmaku_uri(&self, uri: &str) -> Result<(), DanmakuLoadError> {
+        self.load_danmaku_uri_for_source(uri, DanmakuSource::External)
+            .await
+    }
+
+    pub fn begin_live_danmaku(&self) {
+        self.next_danmaku_generation();
+        let imp = self.imp();
+        imp.danmakw.clear_danmaku();
+        imp.danmaku_source.set(DanmakuSource::Live);
+        imp.danmaku_loading_source.set(DanmakuSource::None);
+        imp.danmaku_count.set(0);
+        self.update_danmaku_status();
+        self.set_danmaku_enabled(true);
+    }
+
+    pub fn add_live_danmaku(&self, text: &str) {
+        if self.imp().danmaku_source.get() != DanmakuSource::Live {
+            self.begin_live_danmaku();
+        }
+        self.imp().danmakw.add_danmaku(text);
+        self.imp()
+            .danmaku_count
+            .set(self.imp().danmaku_count.get().saturating_add(1));
+        self.update_danmaku_status();
+    }
+
+    pub fn add_live_danmaku_full(&self, text: &str, color: Color, mode: DanmakuMode) {
+        if self.imp().danmaku_source.get() != DanmakuSource::Live {
+            self.begin_live_danmaku();
+        }
+        self.imp().danmakw.add_danmaku_full(text, color, mode);
+        self.imp()
+            .danmaku_count
+            .set(self.imp().danmaku_count.get().saturating_add(1));
+        self.update_danmaku_status();
+    }
+
+    pub fn clear_danmaku(&self) {
+        self.next_danmaku_generation();
+        let imp = self.imp();
+        imp.danmaku_loading_source.set(DanmakuSource::None);
+        imp.danmaku_source.set(DanmakuSource::None);
+        imp.danmaku_count.set(0);
+        imp.danmakw.clear_danmaku();
+        imp.danmakw.stop_rendering();
+        imp.danmaku_switch.set_active(false);
+        imp.danmaku_switch.set_sensitive(false);
+        self.update_danmaku_status();
+    }
+
+    pub fn set_danmaku_enabled(&self, enabled: bool) {
+        let imp = self.imp();
+        let enabled = enabled && self.has_danmaku();
+        imp.danmaku_switch.set_sensitive(self.has_danmaku());
+        imp.danmaku_switch.set_active(enabled);
+        if !enabled {
+            imp.danmakw.stop_rendering();
+        } else if !self.paused() && !imp.loading_box.is_visible() {
+            imp.danmakw.start_rendering();
+        }
+    }
+
+    pub fn danmaku_enabled(&self) -> bool {
+        self.imp().danmaku_switch.is_active()
+    }
+
+    pub fn has_danmaku(&self) -> bool {
+        self.imp().danmaku_source.get() != DanmakuSource::None
+    }
+
+    pub fn danmaku_count(&self) -> usize {
+        self.imp().danmaku_count.get()
     }
 
     pub fn playlist_bin(&self) -> adw::Bin {
@@ -1042,14 +1219,4 @@ impl MutsumiPlayer {
     fn revealer_visible(&self, reveal_child: bool, child_revealed: bool) -> bool {
         reveal_child || child_revealed
     }
-}
-
-async fn fetch_url_content(url: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let file = gio::File::for_uri(url);
-
-    let (content_bytes, _etag) = file.load_contents_future().await?;
-
-    let content = String::from_utf8(content_bytes.to_vec())?;
-
-    Ok(content)
 }

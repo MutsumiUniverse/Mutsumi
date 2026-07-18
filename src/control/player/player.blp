@@ -540,9 +540,20 @@ Popover danmaku_popover {
 
             [suffix]
             Switch danmaku_switch {
-                active: true;
+                active: false;
+                sensitive: false;
                 valign: center;
                 state-set => $on_danmaku_switch_state_set() swapped;
+            }
+
+            Adw.ActionRow danmaku_status_row {
+                title: _("Loaded Danmaku");
+                subtitle: _("No danmaku loaded · 0 loaded");
+
+                [prefix]
+                Image {
+                    icon-name: "view-list-bullet-symbolic";
+                }
             }
 
             Adw.SpinRow {

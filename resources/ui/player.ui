@@ -572,9 +572,21 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <property name="expanded" bind-source="danmaku_switch" bind-property="active" bind-flags="sync-create|bidirectional"/>
             <child type="suffix">
               <object class="GtkSwitch" id="danmaku_switch">
-                <property name="active">true</property>
+                <property name="active">false</property>
+                <property name="sensitive">false</property>
                 <property name="valign">3</property>
                 <signal name="state-set" handler="on_danmaku_switch_state_set" swapped="True"/>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="danmaku_status_row">
+                <property name="title" translatable="yes">Loaded Danmaku</property>
+                <property name="subtitle" translatable="yes">No danmaku loaded · 0 loaded</property>
+                <child type="prefix">
+                  <object class="GtkImage">
+                    <property name="icon-name">view-list-bullet-symbolic</property>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
