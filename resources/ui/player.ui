@@ -563,14 +563,16 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <signal name="map" handler="on_popover_opened" swapped="True"/>
     <signal name="unmap" handler="on_popover_closed" swapped="True"/>
     <child>
-      <object class="GtkListBox">
-        <property name="selection-mode">0</property>
-        <property name="valign">1</property>
+      <object class="GtkBox">
+        <property name="orientation">1</property>
         <child>
-          <object class="AdwExpanderRow" id="expander_row">
-            <property name="title" translatable="yes">Danmaku</property>
-            <property name="expanded" bind-source="danmaku_switch" bind-property="active" bind-flags="sync-create|bidirectional"/>
-            <child type="suffix">
+          <object class="AdwPreferencesGroup" id="danmaku_status_group">
+            <property name="title" translatable="yes">0 Loaded danmaku</property>
+            <property name="description" translatable="yes">No danmaku loaded</property>
+            <property name="margin-top">18</property>
+            <property name="margin-start">12</property>
+            <property name="margin-end">12</property>
+            <child type="header-suffix">
               <object class="GtkSwitch" id="danmaku_switch">
                 <property name="active">false</property>
                 <property name="sensitive">false</property>
@@ -578,17 +580,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <signal name="state-set" handler="on_danmaku_switch_state_set" swapped="True"/>
               </object>
             </child>
-            <child>
-              <object class="AdwActionRow" id="danmaku_status_row">
-                <property name="title" translatable="yes">Loaded Danmaku</property>
-                <property name="subtitle" translatable="yes">No danmaku loaded · 0 loaded</property>
-                <child type="prefix">
-                  <object class="GtkImage">
-                    <property name="icon-name">view-list-bullet-symbolic</property>
-                  </object>
-                </child>
-              </object>
-            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkListBox">
+            <property name="selection-mode">0</property>
+            <property name="valign">1</property>
             <child>
               <object class="AdwSpinRow">
                 <property name="title" translatable="yes">Opacity</property>
@@ -722,11 +719,11 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 </property>
               </object>
             </child>
+            <style>
+              <class name="boxed-list"/>
+            </style>
           </object>
         </child>
-        <style>
-          <class name="boxed-list-separate"/>
-        </style>
       </object>
     </child>
   </object>

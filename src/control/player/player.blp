@@ -512,10 +512,7 @@ template $MutsumiPlayer: Adw.Bin {
                     reveal-child: false;
                     transition-type: crossfade;
                     transition-duration: 250;
-                    visible: bind $revealer_visible(
-                        drag_revealer.reveal-child,
-                        drag_revealer.child-revealed
-                    ) as <bool>;
+                    visible: bind $revealer_visible(drag_revealer.reveal-child, drag_revealer.child-revealed) as <bool>;
                 }
             };
         }
@@ -530,31 +527,28 @@ Popover danmaku_popover {
     map => $on_popover_opened() swapped;
     unmap => $on_popover_closed() swapped;
 
-    ListBox {
-        selection-mode: none;
-        valign: start;
+    Box {
+        orientation: vertical;
 
-        Adw.ExpanderRow expander_row {
-            title: _("Danmaku");
-            expanded: bind danmaku_switch.active bidirectional;
+        Adw.PreferencesGroup danmaku_status_group {
+            title: _("0 Loaded danmaku");
+            description: _("No danmaku loaded");
+            margin-top: 18;
+            margin-start: 12;
+            margin-end: 12;
 
-            [suffix]
+            [header-suffix]
             Switch danmaku_switch {
                 active: false;
                 sensitive: false;
                 valign: center;
                 state-set => $on_danmaku_switch_state_set() swapped;
             }
+        }
 
-            Adw.ActionRow danmaku_status_row {
-                title: _("Loaded Danmaku");
-                subtitle: _("No danmaku loaded · 0 loaded");
-
-                [prefix]
-                Image {
-                    icon-name: "view-list-bullet-symbolic";
-                }
-            }
+        ListBox {
+            selection-mode: none;
+            valign: start;
 
             Adw.SpinRow {
                 title: _("Opacity");
@@ -672,11 +666,11 @@ Popover danmaku_popover {
                     page-increment: 1;
                 };
             }
-        }
 
-        styles [
-            "boxed-list-separate",
-        ]
+            styles [
+                "boxed-list",
+            ]
+        }
     }
 }
 

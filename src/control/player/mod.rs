@@ -39,8 +39,8 @@ impl DanmakuSource {
     fn label(self) -> &'static str {
         match self {
             Self::None => "No danmaku loaded",
-            Self::MpvTrack => "MPV track",
-            Self::External => "External",
+            Self::MpvTrack => "From MPV track",
+            Self::External => "From external source",
             Self::Live => "Live",
         }
     }
@@ -156,10 +156,11 @@ mod imp {
         #[template_child]
         pub danmaku_switch: TemplateChild<gtk::Switch>,
         #[template_child]
-        pub danmaku_status_row: TemplateChild<adw::ActionRow>,
+        pub danmaku_status_group: TemplateChild<adw::PreferencesGroup>,
 
         pub(super) danmaku_source: Cell<DanmakuSource>,
         pub(super) danmaku_loading_source: Cell<DanmakuSource>,
+        pub danmaku_attribution: RefCell<Option<String>>,
         pub danmaku_count: Cell<usize>,
         pub danmaku_generation: Cell<u64>,
 
@@ -1021,19 +1022,30 @@ impl MutsumiPlayer {
 
     fn update_danmaku_status(&self) {
         let imp = self.imp();
-        imp.danmaku_status_row.set_subtitle(&format!(
-            "{} · {} loaded",
-            imp.danmaku_source.get().label(),
-            imp.danmaku_count.get()
-        ));
+        let count = imp.danmaku_count.get();
+        imp.danmaku_status_group
+            .set_title(&format!("{count} Loaded danmaku"));
+        let description = imp
+            .danmaku_attribution
+            .borrow()
+            .as_deref()
+            .map(|provider| format!("From {provider}"))
+            .unwrap_or_else(|| imp.danmaku_source.get().label().to_owned());
+        imp.danmaku_status_group.set_description(Some(&description));
     }
 
-    fn apply_danmaku(&self, danmaku: Vec<Danmaku>, source: DanmakuSource) {
+    fn apply_danmaku(
+        &self,
+        danmaku: Vec<Danmaku>,
+        source: DanmakuSource,
+        attribution: Option<String>,
+    ) {
         let imp = self.imp();
         let count = danmaku.len();
         imp.danmakw.load_danmaku(danmaku);
         imp.danmaku_source.set(source);
         imp.danmaku_loading_source.set(DanmakuSource::None);
+        imp.danmaku_attribution.replace(attribution);
         imp.danmaku_count.set(count);
         self.update_danmaku_status();
         self.set_danmaku_enabled(true);
@@ -1043,6 +1055,7 @@ impl MutsumiPlayer {
         &self,
         uri: &str,
         source: DanmakuSource,
+        attribution: Option<String>,
     ) -> Result<(), DanmakuLoadError> {
         let generation = self.next_danmaku_generation();
         self.imp().danmaku_loading_source.set(source);
@@ -1061,7 +1074,7 @@ impl MutsumiPlayer {
             return Err(DanmakuLoadError::Superseded);
         }
 
-        self.apply_danmaku(danmaku, source);
+        self.apply_danmaku(danmaku, source, attribution);
         Ok(())
     }
 
@@ -1072,7 +1085,7 @@ impl MutsumiPlayer {
             self,
             async move {
                 if let Err(error) = obj
-                    .load_danmaku_uri_for_source(&uri, DanmakuSource::MpvTrack)
+                    .load_danmaku_uri_for_source(&uri, DanmakuSource::MpvTrack, None)
                     .await
                     && !matches!(error, DanmakuLoadError::Superseded)
                 {
@@ -1095,20 +1108,53 @@ impl MutsumiPlayer {
     }
 
     pub fn load_danmaku(&self, danmaku: Vec<Danmaku>) {
+        self.load_danmaku_from("external source", danmaku);
+    }
+
+    pub fn load_danmaku_from(&self, provider: impl Into<String>, danmaku: Vec<Danmaku>) {
         self.next_danmaku_generation();
-        self.apply_danmaku(danmaku, DanmakuSource::External);
+        self.apply_danmaku(
+            danmaku,
+            DanmakuSource::External,
+            Some(normalize_danmaku_provider(provider.into())),
+        );
     }
 
     pub fn load_bilibili_danmaku_xml(&self, xml: &str) -> Result<(), DanmakuLoadError> {
+        self.load_bilibili_danmaku_xml_from("external source", xml)
+    }
+
+    pub fn load_bilibili_danmaku_xml_from(
+        &self,
+        provider: impl Into<String>,
+        xml: &str,
+    ) -> Result<(), DanmakuLoadError> {
         self.next_danmaku_generation();
         let danmaku = crate::parse_bilibili_xml(xml)?;
-        self.apply_danmaku(danmaku, DanmakuSource::External);
+        self.apply_danmaku(
+            danmaku,
+            DanmakuSource::External,
+            Some(normalize_danmaku_provider(provider.into())),
+        );
         Ok(())
     }
 
     pub async fn load_bilibili_danmaku_uri(&self, uri: &str) -> Result<(), DanmakuLoadError> {
-        self.load_danmaku_uri_for_source(uri, DanmakuSource::External)
+        self.load_bilibili_danmaku_uri_from("external source", uri)
             .await
+    }
+
+    pub async fn load_bilibili_danmaku_uri_from(
+        &self,
+        provider: impl Into<String>,
+        uri: &str,
+    ) -> Result<(), DanmakuLoadError> {
+        self.load_danmaku_uri_for_source(
+            uri,
+            DanmakuSource::External,
+            Some(normalize_danmaku_provider(provider.into())),
+        )
+        .await
     }
 
     pub fn begin_live_danmaku(&self) {
@@ -1117,6 +1163,7 @@ impl MutsumiPlayer {
         imp.danmakw.clear_danmaku();
         imp.danmaku_source.set(DanmakuSource::Live);
         imp.danmaku_loading_source.set(DanmakuSource::None);
+        imp.danmaku_attribution.replace(None);
         imp.danmaku_count.set(0);
         self.update_danmaku_status();
         self.set_danmaku_enabled(true);
@@ -1149,6 +1196,7 @@ impl MutsumiPlayer {
         let imp = self.imp();
         imp.danmaku_loading_source.set(DanmakuSource::None);
         imp.danmaku_source.set(DanmakuSource::None);
+        imp.danmaku_attribution.replace(None);
         imp.danmaku_count.set(0);
         imp.danmakw.clear_danmaku();
         imp.danmakw.stop_rendering();
@@ -1218,5 +1266,14 @@ impl MutsumiPlayer {
     #[template_callback]
     fn revealer_visible(&self, reveal_child: bool, child_revealed: bool) -> bool {
         reveal_child || child_revealed
+    }
+}
+
+fn normalize_danmaku_provider(provider: String) -> String {
+    let provider = provider.trim();
+    if provider.is_empty() {
+        "external source".to_owned()
+    } else {
+        provider.to_owned()
     }
 }
