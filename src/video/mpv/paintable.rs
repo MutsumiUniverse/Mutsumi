@@ -14,10 +14,15 @@ use gtk::gdk;
 
 mod imp {
     use crate::{
-        FRAME_CHANNEL, create_mpv_proxy,
+        FRAME_CHANNEL, FrameCallbacks, SurfaceContentUpdate, SurfaceUpdate, create_mpv_proxy,
         video::{MutsumiMpvError, mpv::contexted::ContextedMPV},
     };
+    #[cfg(feature = "profiling")]
+    use std::cell::Cell;
     use std::{cell::RefCell, os::fd::AsRawFd, sync::OnceLock};
+
+    #[cfg(feature = "profiling")]
+    use crate::video::mpv::proxy::profiling::{self, Stage};
 
     use super::*;
 
@@ -28,6 +33,9 @@ mod imp {
     pub struct MutsumiVideoSink {
         pub mpv: ContextedMPV,
         pub texture: RefCell<Option<gdk::Texture>>,
+        pub frame_callbacks: RefCell<Vec<FrameCallbacks>>,
+        #[cfg(feature = "profiling")]
+        pub pending_snapshot_frame_id: Cell<Option<u64>>,
     }
 
     #[glib::object_subclass]
@@ -49,31 +57,75 @@ mod imp {
                 #[weak]
                 obj,
                 async move {
-                    while let Ok(frame) = FRAME_CHANNEL.rx.recv_async().await {
-                        let mut builder = gdk::DmabufTextureBuilder::new()
-                            .set_display(&gdk::Display::default().unwrap())
-                            .set_width(frame.width)
-                            .set_height(frame.height)
-                            .set_fourcc(frame.format)
-                            .set_modifier(frame.modifier)
-                            .set_n_planes(frame.planes.len() as u32);
+                    while let Ok(update) = FRAME_CHANNEL.rx.recv_async().await {
+                        let SurfaceUpdate {
+                            content,
+                            frame_callbacks,
+                        } = update;
 
-                        for (i, plane) in frame.planes.iter().enumerate() {
-                            builder = unsafe { builder.set_fd(i as u32, plane.fd.as_raw_fd()) }
-                                .set_offset(i as u32, plane.offset)
-                                .set_stride(i as u32, plane.stride);
+                        match content {
+                            SurfaceContentUpdate::Frame(frame) => {
+                                #[cfg(feature = "profiling")]
+                                let profile_frame_id = frame.profile_frame_id;
+                                #[cfg(feature = "profiling")]
+                                profiling::mark(profile_frame_id, Stage::TextureBuildStarted);
+
+                                let previous = obj.imp().texture.borrow();
+                                let update_texture = previous.as_ref().filter(|texture| {
+                                    texture.width() == frame.width as i32
+                                        && texture.height() == frame.height as i32
+                                });
+                                let mut builder = gdk::DmabufTextureBuilder::new()
+                                    .set_display(
+                                        &gdk::Display::default()
+                                            .expect("Could not connect to display"),
+                                    )
+                                    .set_width(frame.width)
+                                    .set_height(frame.height)
+                                    .set_fourcc(frame.format)
+                                    .set_modifier(frame.modifier)
+                                    .set_n_planes(frame.planes.len() as u32)
+                                    .set_update_texture(update_texture);
+                                drop(previous);
+
+                                for (i, plane) in frame.planes.iter().enumerate() {
+                                    builder =
+                                        unsafe { builder.set_fd(i as u32, plane.fd.as_raw_fd()) }
+                                            .set_offset(i as u32, plane.offset)
+                                            .set_stride(i as u32, plane.stride);
+                                }
+
+                                match unsafe {
+                                    builder.build_with_release_func(move || drop(frame))
+                                } {
+                                    Ok(texture) => {
+                                        #[cfg(feature = "profiling")]
+                                        {
+                                            profiling::mark(profile_frame_id, Stage::TextureBuilt);
+                                            obj.imp()
+                                                .pending_snapshot_frame_id
+                                                .set(profile_frame_id);
+                                        }
+                                        obj.imp().texture.replace(Some(texture));
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("dmabuf build failed: {e}");
+                                    }
+                                }
+                            }
+                            SurfaceContentUpdate::Clear => {
+                                #[cfg(feature = "profiling")]
+                                obj.imp().pending_snapshot_frame_id.set(None);
+                                obj.imp().texture.take();
+                            }
+                            SurfaceContentUpdate::Unchanged => {}
                         }
 
-                        match unsafe { builder.build_with_release_func(move || drop(frame)) } {
-                            Ok(texture) => {
-                                obj.imp().texture.replace(Some(texture));
-
-                                obj.invalidate_contents();
-                            }
-                            Err(e) => {
-                                tracing::error!("dmabuf build failed: {e}");
-                            }
+                        if let Some(frame_callbacks) = frame_callbacks {
+                            obj.imp().frame_callbacks.borrow_mut().push(frame_callbacks);
                         }
+
+                        obj.invalidate_contents();
                     }
                 }
             ));
@@ -81,6 +133,7 @@ mod imp {
 
         fn dispose(&self) {
             self.texture.take();
+            self.frame_callbacks.take();
             self.mpv.shutdown();
         }
 
@@ -111,6 +164,14 @@ mod imp {
                     texture,
                     &gtk::graphene::Rect::new(0.0, 0.0, width as f32, height as f32),
                 );
+
+                #[cfg(feature = "profiling")]
+                profiling::mark(self.pending_snapshot_frame_id.take(), Stage::Snapshot);
+            }
+
+            let time_ms = (glib::monotonic_time() / 1_000) as u32;
+            for frame_callbacks in self.frame_callbacks.take() {
+                frame_callbacks.done(time_ms);
             }
         }
     }

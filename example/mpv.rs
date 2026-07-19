@@ -5,6 +5,9 @@ use mutsumi::video::MutsumiVideoPlayer;
 use mutsumi::{PlayParams, PlaySource};
 
 fn main() {
+    #[cfg(feature = "profiling")]
+    let _profiling = mutsumi::start_proxy_profiling();
+
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();

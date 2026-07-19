@@ -4,6 +4,9 @@ use mutsumi::{MutsumiPlayer, PlayParams, PlaySource};
 const DEFAULT_URL: &str = "https://www.bilibili.com/video/BV1m9GE6wEPt";
 
 fn main() {
+    #[cfg(feature = "profiling")]
+    let _profiling = mutsumi::start_proxy_profiling();
+
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
