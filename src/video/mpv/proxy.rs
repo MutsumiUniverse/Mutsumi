@@ -3,8 +3,8 @@ use std::{
     collections::{HashMap, HashSet},
     os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd},
     rc::Rc,
-    sync::{Mutex, OnceLock},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    sync::{Arc, Mutex, OnceLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use once_cell::sync::Lazy;
@@ -69,11 +69,21 @@ pub struct DmabufFrame {
     pub planes: Vec<DmabufPlane>,
     buffer_id: u64,
     release_tx: flume::Sender<u64>,
+    release_wake: Arc<OwnedFd>,
 }
 
 impl Drop for DmabufFrame {
     fn drop(&mut self) {
-        let _ = self.release_tx.send(self.buffer_id);
+        if self.release_tx.send(self.buffer_id).is_ok() {
+            let value = 1u64;
+            unsafe {
+                libc::write(
+                    self.release_wake.as_raw_fd(),
+                    (&value as *const u64).cast(),
+                    std::mem::size_of::<u64>(),
+                );
+            }
+        }
     }
 }
 
@@ -115,7 +125,12 @@ struct BufferInfo {
 }
 
 impl BufferInfo {
-    fn to_frame(&self, buffer_id: u64, release_tx: flume::Sender<u64>) -> DmabufFrame {
+    fn to_frame(
+        &self,
+        buffer_id: u64,
+        release_tx: flume::Sender<u64>,
+        release_wake: Arc<OwnedFd>,
+    ) -> DmabufFrame {
         let planes = self
             .planes
             .iter()
@@ -137,6 +152,7 @@ impl BufferInfo {
             planes,
             buffer_id,
             release_tx,
+            release_wake,
         }
     }
 }
@@ -149,6 +165,7 @@ struct ToplevelEntry {
 struct SharedState {
     buffer_info: HashMap<u64, BufferInfo>,
     release_tx: flume::Sender<u64>,
+    release_wake: Arc<OwnedFd>,
     toplevels: Vec<ToplevelEntry>,
     configure_serial: u32,
     fractional_scales: Vec<Rc<WpFractionalScaleV1>>,
@@ -418,7 +435,11 @@ impl WlSurfaceHandler for SurfaceHandler {
         if let Some(buffer) = self.pending_buffer.take() {
             let state = self.shared.borrow();
             if let Some(info) = state.buffer_info.get(&buffer.unique_id()) {
-                let frame = info.to_frame(buffer.unique_id(), state.release_tx.clone());
+                let frame = info.to_frame(
+                    buffer.unique_id(),
+                    state.release_tx.clone(),
+                    Arc::clone(&state.release_wake),
+                );
                 let _ = FRAME_CHANNEL.tx.send(frame);
             } else {
                 buffer.send_release();
@@ -801,10 +822,22 @@ fn serve_client(socket: OwnedFd, upstream: String) {
         _destructor: state.create_destructor(),
     });
 
+    let release_wake = unsafe {
+        let fd = libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK);
+        if fd < 0 {
+            tracing::error!(
+                "wl-proxy-mpv: failed to create release eventfd: {}",
+                std::io::Error::last_os_error()
+            );
+            return;
+        }
+        Arc::new(OwnedFd::from_raw_fd(fd))
+    };
     let (release_tx, release_rx) = flume::unbounded();
     let shared = Rc::new(RefCell::new(SharedState {
         buffer_info: HashMap::new(),
         release_tx,
+        release_wake: Arc::clone(&release_wake),
         toplevels: Vec::new(),
         configure_serial: 1,
         fractional_scales: Vec::new(),
@@ -814,9 +847,18 @@ fn serve_client(socket: OwnedFd, upstream: String) {
     });
 
     while state.is_not_destroyed() {
-        if let Err(e) = state.dispatch(Some(Duration::from_millis(50))) {
+        if let Err(e) = state.dispatch_available() {
             tracing::error!("wl-proxy-mpv: dispatch failed: {e}");
             return;
+        }
+
+        let mut wake_count = 0u64;
+        unsafe {
+            libc::read(
+                release_wake.as_raw_fd(),
+                (&mut wake_count as *mut u64).cast(),
+                std::mem::size_of::<u64>(),
+            );
         }
 
         while let Ok(buffer_id) = release_rx.try_recv() {
@@ -835,6 +877,33 @@ fn serve_client(socket: OwnedFd, upstream: String) {
             *CURRENT_SCALE.lock().unwrap() = scale;
             let scale_120 = (scale * 120.0).round() as u32;
             shared.borrow_mut().update_fractional_scales(scale_120);
+        }
+
+        if let Err(e) = state.before_poll() {
+            tracing::error!("wl-proxy-mpv: failed to prepare poll: {e}");
+            return;
+        }
+
+        let mut poll_fds = [
+            libc::pollfd {
+                fd: state.poll_fd().as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: release_wake.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            },
+        ];
+
+        let result = unsafe { libc::poll(poll_fds.as_mut_ptr(), poll_fds.len() as _, -1) };
+        if result < 0 && std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+            tracing::error!(
+                "wl-proxy-mpv: poll failed: {}",
+                std::io::Error::last_os_error()
+            );
+            return;
         }
     }
 }
