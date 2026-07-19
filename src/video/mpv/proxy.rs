@@ -67,6 +67,14 @@ pub struct DmabufFrame {
     pub format: u32,
     pub modifier: u64,
     pub planes: Vec<DmabufPlane>,
+    buffer_id: u64,
+    release_tx: flume::Sender<u64>,
+}
+
+impl Drop for DmabufFrame {
+    fn drop(&mut self) {
+        let _ = self.release_tx.send(self.buffer_id);
+    }
 }
 
 pub static FRAME_CHANNEL: Lazy<DmabufFrameChannel> = Lazy::new(|| {
@@ -107,7 +115,7 @@ struct BufferInfo {
 }
 
 impl BufferInfo {
-    fn to_frame(&self) -> DmabufFrame {
+    fn to_frame(&self, buffer_id: u64, release_tx: flume::Sender<u64>) -> DmabufFrame {
         let planes = self
             .planes
             .iter()
@@ -127,6 +135,8 @@ impl BufferInfo {
             format: self.format,
             modifier: self.modifier,
             planes,
+            buffer_id,
+            release_tx,
         }
     }
 }
@@ -138,6 +148,7 @@ struct ToplevelEntry {
 
 struct SharedState {
     buffer_info: HashMap<u64, BufferInfo>,
+    release_tx: flume::Sender<u64>,
     toplevels: Vec<ToplevelEntry>,
     configure_serial: u32,
     fractional_scales: Vec<Rc<WpFractionalScaleV1>>,
@@ -407,10 +418,11 @@ impl WlSurfaceHandler for SurfaceHandler {
         if let Some(buffer) = self.pending_buffer.take() {
             let state = self.shared.borrow();
             if let Some(info) = state.buffer_info.get(&buffer.unique_id()) {
-                let frame = info.to_frame();
+                let frame = info.to_frame(buffer.unique_id(), state.release_tx.clone());
                 let _ = FRAME_CHANNEL.tx.send(frame);
+            } else {
+                buffer.send_release();
             }
-            buffer.send_release();
         }
     }
 }
@@ -789,8 +801,10 @@ fn serve_client(socket: OwnedFd, upstream: String) {
         _destructor: state.create_destructor(),
     });
 
+    let (release_tx, release_rx) = flume::unbounded();
     let shared = Rc::new(RefCell::new(SharedState {
         buffer_info: HashMap::new(),
+        release_tx,
         toplevels: Vec::new(),
         configure_serial: 1,
         fractional_scales: Vec::new(),
@@ -803,6 +817,13 @@ fn serve_client(socket: OwnedFd, upstream: String) {
         if let Err(e) = state.dispatch(Some(Duration::from_millis(50))) {
             tracing::error!("wl-proxy-mpv: dispatch failed: {e}");
             return;
+        }
+
+        while let Ok(buffer_id) = release_rx.try_recv() {
+            let shared = shared.borrow();
+            if let Some(info) = shared.buffer_info.get(&buffer_id) {
+                info._buffer.send_release();
+            }
         }
 
         let mut latest = None;
