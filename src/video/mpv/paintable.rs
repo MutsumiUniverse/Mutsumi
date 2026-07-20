@@ -71,10 +71,7 @@ mod imp {
                                 profiling::mark(profile_frame_id, Stage::TextureBuildStarted);
 
                                 let previous = obj.imp().texture.borrow();
-                                let update_texture = previous.as_ref().filter(|texture| {
-                                    texture.width() == frame.width as i32
-                                        && texture.height() == frame.height as i32
-                                });
+
                                 let mut builder = gdk::DmabufTextureBuilder::new()
                                     .set_display(
                                         &gdk::Display::default()
@@ -84,8 +81,8 @@ mod imp {
                                     .set_height(frame.height)
                                     .set_fourcc(frame.format)
                                     .set_modifier(frame.modifier)
-                                    .set_n_planes(frame.planes.len() as u32)
-                                    .set_update_texture(update_texture);
+                                    .set_n_planes(frame.planes.len() as u32);
+
                                 drop(previous);
 
                                 for (i, plane) in frame.planes.iter().enumerate() {
