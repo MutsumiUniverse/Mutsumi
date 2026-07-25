@@ -36,6 +36,67 @@ struct StoredPlane {
     stride: u32,
 }
 
+pub fn register_implicit_dmabuf(
+    state: &Rc<RefCell<SharedState>>,
+    buffer: &Rc<WlBuffer>,
+    fd: &OwnedFd,
+    width: i32,
+    height: i32,
+    format: u32,
+    planes: &[(i32, i32)],
+) {
+    if width <= 0 || height <= 0 {
+        tracing::error!("wl-proxy-mpv: invalid wl_drm buffer dimensions: {width}x{height}");
+        return;
+    }
+
+    let planes = planes
+        .iter()
+        .filter(|(_, stride)| *stride > 0)
+        .map(|(offset, stride)| {
+            if *offset < 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "negative wl_drm plane offset",
+                ));
+            }
+
+            Ok(StoredPlane {
+                fd: fd.try_clone()?,
+                offset: *offset as u32,
+                stride: *stride as u32,
+            })
+        })
+        .collect::<std::io::Result<Vec<_>>>();
+
+    let Ok(planes) = planes else {
+        tracing::error!("wl-proxy-mpv: failed to clone wl_drm PRIME fd");
+        return;
+    };
+    if planes.is_empty() {
+        tracing::error!("wl-proxy-mpv: wl_drm PRIME buffer has no planes");
+        return;
+    }
+
+    buffer.set_forward_to_server(false);
+    buffer.set_handler(WlBufferHandlerImpl {
+        shared: Rc::clone(state),
+    });
+
+    state.borrow_mut().buffer_info.insert(
+        buffer.unique_id(),
+        BufferInfo {
+            buffer: Rc::clone(buffer),
+            planes,
+            width: width as u32,
+            height: height as u32,
+            format,
+            // wl_drm does not carry explicit modifier information.
+            modifier: u64::MAX,
+        },
+    );
+}
+
 pub struct BufferInfo {
     pub buffer: Rc<WlBuffer>,
     planes: Vec<StoredPlane>,
@@ -273,6 +334,47 @@ struct BufferParamsHandler {
     modifier: Option<u64>,
 }
 
+impl BufferParamsHandler {
+    fn register_buffer(
+        &mut self,
+        buffer: &Rc<WlBuffer>,
+        width: i32,
+        height: i32,
+        format: u32,
+    ) -> bool {
+        let Some(planes): Option<Vec<_>> = std::mem::take(&mut self.planes).into_iter().collect()
+        else {
+            tracing::error!("wl-proxy-mpv: dmabuf has missing planes");
+            return false;
+        };
+        if planes.is_empty() || width <= 0 || height <= 0 {
+            tracing::error!(
+                "wl-proxy-mpv: invalid dmabuf dimensions or plane count: {width}x{height}, {} planes",
+                planes.len()
+            );
+            return false;
+        }
+
+        buffer.set_forward_to_server(false);
+        buffer.set_handler(WlBufferHandlerImpl {
+            shared: Rc::clone(&self.state),
+        });
+
+        self.state.borrow_mut().buffer_info.insert(
+            buffer.unique_id(),
+            BufferInfo {
+                buffer: Rc::clone(buffer),
+                planes,
+                width: width as u32,
+                height: height as u32,
+                format,
+                modifier: self.modifier.take().unwrap_or(0),
+            },
+        );
+        true
+    }
+}
+
 impl ZwpLinuxBufferParamsV1Handler for BufferParamsHandler {
     fn handle_destroy(&mut self, slf: &Rc<ZwpLinuxBufferParamsV1>) {
         slf.delete_id();
@@ -322,6 +424,32 @@ impl ZwpLinuxBufferParamsV1Handler for BufferParamsHandler {
         });
     }
 
+    fn handle_create(
+        &mut self,
+        slf: &Rc<ZwpLinuxBufferParamsV1>,
+        width: i32,
+        height: i32,
+        format: u32,
+        _flags: ZwpLinuxBufferParamsV1Flags,
+    ) {
+        let valid = width > 0
+            && height > 0
+            && !self.planes.is_empty()
+            && self.planes.iter().all(Option::is_some);
+        if !valid {
+            tracing::error!(
+                "wl-proxy-mpv: invalid asynchronous dmabuf: {width}x{height}, {} planes",
+                self.planes.len()
+            );
+            slf.send_failed();
+            return;
+        }
+
+        let buffer = slf.new_send_created();
+        let registered = self.register_buffer(&buffer, width, height, format);
+        debug_assert!(registered);
+    }
+
     fn handle_create_immed(
         &mut self,
         _slf: &Rc<ZwpLinuxBufferParamsV1>,
@@ -331,37 +459,7 @@ impl ZwpLinuxBufferParamsV1Handler for BufferParamsHandler {
         format: u32,
         _flags: ZwpLinuxBufferParamsV1Flags,
     ) {
-        buffer_id.set_forward_to_server(false);
-        buffer_id.set_handler(WlBufferHandlerImpl {
-            shared: Rc::clone(&self.state),
-        });
-
-        let Some(planes): Option<Vec<_>> = std::mem::take(&mut self.planes).into_iter().collect()
-        else {
-            tracing::error!("wl-proxy-mpv: dmabuf has missing planes");
-            return;
-        };
-        if planes.is_empty() || width <= 0 || height <= 0 {
-            tracing::error!(
-                "wl-proxy-mpv: invalid dmabuf dimensions or plane count: {width}x{height}, {} planes",
-                planes.len()
-            );
-            return;
-        }
-
-        let info = BufferInfo {
-            buffer: Rc::clone(buffer_id),
-            planes,
-            width: width as u32,
-            height: height as u32,
-            format,
-            modifier: self.modifier.take().unwrap_or(0),
-        };
-
-        self.state
-            .borrow_mut()
-            .buffer_info
-            .insert(buffer_id.unique_id(), info);
+        self.register_buffer(buffer_id, width, height, format);
     }
 }
 

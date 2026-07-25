@@ -1,4 +1,5 @@
 mod dmabuf;
+mod drm;
 #[cfg(feature = "profiling")]
 pub mod profiling;
 mod surface;
@@ -23,6 +24,7 @@ use wl_proxy::{
     object::{Object, ObjectCoreApi, ObjectRcUtils},
     protocols::{
         ObjectInterface,
+        drm::wl_drm::WlDrm,
         fractional_scale_v1::{
             wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1,
             wp_fractional_scale_v1::WpFractionalScaleV1,
@@ -44,6 +46,7 @@ use wl_proxy::{
 
 use self::{
     dmabuf::{ALLOWED_FORMAT_PAIRS, BufferInfo, DmabufHandler},
+    drm::DrmHandler,
     surface::{
         CompositorHandler, FractionalScaleManagerHandler, SubcompositorHandler, ViewporterHandler,
     },
@@ -250,6 +253,7 @@ impl WlRegistryHandler for RegistryHandler {
             let compositor = id.try_downcast::<WlCompositor>();
             let subcompositor = id.try_downcast::<WlSubcompositor>();
             let dmabuf = id.try_downcast::<ZwpLinuxDmabufV1>();
+            let drm = id.try_downcast::<WlDrm>();
 
             self.mapper.forward_bind(slf, name, &id);
 
@@ -261,6 +265,10 @@ impl WlRegistryHandler for RegistryHandler {
                 subcompositor.set_handler(SubcompositorHandler);
             } else if let Some(dmabuf) = dmabuf {
                 dmabuf.set_handler(DmabufHandler {
+                    state: Rc::clone(&self.state),
+                });
+            } else if let Some(drm) = drm {
+                drm.set_handler(DrmHandler {
                     state: Rc::clone(&self.state),
                 });
             }

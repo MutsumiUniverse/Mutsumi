@@ -1,6 +1,5 @@
 use glib::Object;
 use gtk::{gdk::prelude::PaintableExt, glib, subclass::prelude::*};
-use tracing::info;
 
 use crate::{
     PlayParams,
@@ -236,7 +235,7 @@ impl MutsumiVideoSink {
             async move {
                 let mpv = obj.mpv();
 
-                info!("Now Playing: {}", url);
+                tracing::info!(target: "mutsumi::mpv", source = url, "loading media");
                 mpv.load_video(&url);
 
                 if let Some(start_time) = start_time {

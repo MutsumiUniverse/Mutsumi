@@ -46,6 +46,7 @@ gdk-wayland = { version = "0.11", package = "gdk4-wayland", features = [
   "wayland_crate",
 ] }
 wl-proxy = { version = "0.1", features = [
+  "protocol-drm",
   "protocol-linux_dmabuf_v1",
   "protocol-xdg_shell",
   "protocol-viewporter",

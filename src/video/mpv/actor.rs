@@ -5,7 +5,7 @@ use std::{
 
 use crate::MutsumiMpvError;
 
-use super::*;
+use super::{logging, *};
 use flume::{Receiver, Sender, unbounded};
 use libmpv2::{
     Format, Mpv,
@@ -114,11 +114,11 @@ pub enum MpvMessage {
         args: Vec<String>,
     },
     SetProperty {
-        property: &'static str,
+        property: String,
         value: MpvValue,
     },
     GetProperty {
-        property: &'static str,
+        property: String,
         value_type: MpvValueType,
         tx: tokio::sync::oneshot::Sender<MpvValue>,
     },
@@ -159,9 +159,9 @@ impl Default for MpvActor {
 impl MpvActor {
     pub fn new() -> Self {
         Self::with_initializer(|mpv| {
-            _ = mpv.set_option("input-default-bindings", "yes");
-            _ = mpv.set_property("hwdec", "auto-safe");
-            _ = mpv.set_property("keep-open", "yes");
+            mpv.set_option("input-default-bindings", "yes")?;
+            mpv.set_option("hwdec", "auto-safe")?;
+            mpv.set_option("keep-open", "yes")?;
 
             if let Some(initializer) = MPV_INITIALIZER.get() {
                 initializer(mpv)?;
@@ -177,6 +177,8 @@ impl MpvActor {
         F: FnOnce(libmpv2::MpvInitializer) -> libmpv2::Result<()>,
     {
         let mpv = Mpv::with_initializer(initializer)?;
+        logging::request_logs(&mpv);
+        tracing::debug!(target: "mutsumi::mpv", "mpv instance initialized");
 
         mpv.disable_deprecated_events()?;
 
@@ -214,24 +216,20 @@ impl MpvActor {
 
                 match msg {
                     MpvMessage::Command { cmd, args } => {
-                        let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+                        let args_ref: Vec<&str> = args.iter().map(String::as_str).collect();
                         let _ = mpv.command(&cmd, &args_ref);
                     }
                     MpvMessage::SetProperty { property, value } => {
-                        _ = value.set_on(&mpv, property);
+                        let _ = value.set_on(&mpv, &property);
                     }
                     MpvMessage::GetProperty {
                         property,
                         value_type,
                         tx,
                     } => {
-                        let Some(result): Option<MpvValue> =
-                            mpv.get_property_value(property, value_type)
-                        else {
-                            continue;
-                        };
-
-                        let _ = tx.send(result);
+                        if let Ok(result) = mpv.get_property_value(&property, value_type) {
+                            let _ = tx.send(result);
+                        }
                     }
                     MpvMessage::InitRenderContext(tx) => {
                         let _ = tx.send(Arc::clone(&mpv.mpv));
@@ -250,10 +248,12 @@ impl MpvActor {
     where
         V: Into<MpvValue>,
     {
-        _ = MPV_CTRL.tx.send(MpvMessage::SetProperty {
-            property: Box::leak(property.to_string().into_boxed_str()),
+        if let Err(error) = MPV_CTRL.tx.send(MpvMessage::SetProperty {
+            property: property.to_owned(),
             value: value.into(),
-        });
+        }) {
+            tracing::warn!(target: "mutsumi::mpv", %error, "mpv actor is unavailable");
+        }
     }
 
     pub async fn get_property(
@@ -261,13 +261,14 @@ impl MpvActor {
         property: &str,
         value_type: MpvValueType,
     ) -> Result<MpvValue, tokio::sync::oneshot::error::RecvError> {
-        let property = Box::leak(property.to_string().into_boxed_str());
         let (tx, rx) = tokio::sync::oneshot::channel::<MpvValue>();
-        _ = MPV_CTRL.tx.send(MpvMessage::GetProperty {
-            property,
+        if let Err(error) = MPV_CTRL.tx.send(MpvMessage::GetProperty {
+            property: property.to_owned(),
             value_type,
             tx,
-        });
+        }) {
+            tracing::warn!(target: "mutsumi::mpv", %error, "mpv actor is unavailable");
+        }
 
         rx.await
     }
@@ -275,10 +276,12 @@ impl MpvActor {
     pub fn command(&self, cmd: &str, args: &[&str]) {
         let cmd_owned = cmd.to_string();
         let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
-        let _ = MPV_CTRL.tx.send(MpvMessage::Command {
+        if let Err(error) = MPV_CTRL.tx.send(MpvMessage::Command {
             cmd: cmd_owned,
             args: args_owned,
-        });
+        }) {
+            tracing::warn!(target: "mutsumi::mpv", %error, "mpv actor is unavailable");
+        }
     }
 }
 
@@ -291,6 +294,12 @@ impl SendMpv {
 
         match event {
             Ok(event) => match event {
+                Event::LogMessage {
+                    prefix,
+                    text,
+                    log_level,
+                    ..
+                } => logging::emit_log(prefix, log_level, text),
                 Event::PropertyChange { name, change, .. } => match name {
                     "duration" => {
                         if let PropertyData::Double(dur) = change {
@@ -377,9 +386,9 @@ impl SendMpv {
                 Event::FileLoaded => {
                     let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::FileLoaded);
                 }
-                Event::EndFile(r) => {
+                Event::EndFile(reason) => {
                     self.has_file.set(false);
-                    let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Eof(r));
+                    let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Eof(reason));
                 }
                 Event::StartFile => {
                     self.has_file.set(true);
@@ -394,29 +403,29 @@ impl SendMpv {
                 }
                 _ => {}
             },
-            Err(e) => {
-                let libmpv2::Error::Raw(e) = e else {
+            Err(error) => {
+                let libmpv2::Error::Raw(code) = error else {
                     return true;
                 };
 
-                let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Error(
-                    MutsumiMpvError::from_code(e).to_string(),
-                ));
+                let message = MutsumiMpvError::from_code(code).to_string();
+                let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::Error(message));
             }
         }
 
         true
     }
 
-    fn get_property_value(&self, property: &str, value_type: MpvValueType) -> Option<MpvValue> {
+    fn get_property_value(
+        &self,
+        property: &str,
+        value_type: MpvValueType,
+    ) -> libmpv2::Result<MpvValue> {
         match value_type {
-            MpvValueType::Bool => self.get_property::<bool>(property).ok().map(MpvValue::Bool),
-            MpvValueType::I64 => self.get_property::<i64>(property).ok().map(MpvValue::I64),
-            MpvValueType::F64 => self.get_property::<f64>(property).ok().map(MpvValue::F64),
-            MpvValueType::String => self
-                .get_property::<String>(property)
-                .ok()
-                .map(MpvValue::String),
+            MpvValueType::Bool => self.get_property::<bool>(property).map(MpvValue::Bool),
+            MpvValueType::I64 => self.get_property::<i64>(property).map(MpvValue::I64),
+            MpvValueType::F64 => self.get_property::<f64>(property).map(MpvValue::F64),
+            MpvValueType::String => self.get_property::<String>(property).map(MpvValue::String),
         }
     }
 }

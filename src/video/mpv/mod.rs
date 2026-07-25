@@ -1,6 +1,7 @@
 mod actor;
 mod area;
 mod contexted;
+mod logging;
 mod paintable;
 mod proxy;
 
@@ -30,6 +31,7 @@ pub enum ListenEvent {
     Speed(f64),
     Shutdown,
     DemuxerCacheTime(i64),
+    DemuxerCacheIdle(bool),
     TimePos(i64),
     PausedForCache(bool, TimeMillis),
     ChapterList(ChapterList),

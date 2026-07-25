@@ -245,12 +245,7 @@ impl ContextedMPV {
 }
 
 fn get_full_keystr(key: u32, state: gtk::gdk::ModifierType) -> Option<String> {
-    let modstr = get_modstr(state);
-    let keystr = keyval_to_keystr(key);
-    if let Some(keystr) = keystr {
-        return Some(format!("{modstr}{keystr}"));
-    }
-    None
+    Some(format!("{}{}", get_modstr(state), keyval_to_keystr(key)?))
 }
 
 fn get_modstr(state: gtk::gdk::ModifierType) -> String {
@@ -273,7 +268,9 @@ fn get_modstr(state: gtk::gdk::ModifierType) -> String {
             str: "Alt+",
         },
         ModMap {
-            mask: gtk::gdk::ModifierType::SUPER_MASK,
+            mask: gtk::gdk::ModifierType::SUPER_MASK
+                | gtk::gdk::ModifierType::META_MASK
+                | gtk::gdk::ModifierType::HYPER_MASK,
             str: "Meta+",
         },
     ];
@@ -281,7 +278,7 @@ fn get_modstr(state: gtk::gdk::ModifierType) -> String {
     let mut result = String::new();
 
     for mod_item in &mod_map {
-        if state.contains(mod_item.mask) {
+        if state.intersects(mod_item.mask) {
             result.push_str(mod_item.str);
         }
     }
@@ -309,7 +306,7 @@ const KEYSTRING_MAP: &[(&str, &str)] = &[
     ("ENTER", "\r"),
     ("ENTER", "Return"),
     ("INS", "Insert"),
-    ("VOLUME_LOWER", "AudioLowerVolume"),
+    ("VOLUME_DOWN", "AudioLowerVolume"),
     ("MUTE", "AudioMute"),
     ("VOLUME_UP", "AudioRaiseVolume"),
     ("PLAY", "AudioPlay"),
@@ -326,17 +323,41 @@ const KEYSTRING_MAP: &[(&str, &str)] = &[
     ("SLEEP", "Sleep"),
     ("CANCEL", "Cancel"),
     ("RECORD", "AudioRecord"),
-    ("", "Control_L"),
-    ("", "Control_R"),
-    ("", "Alt_L"),
-    ("", "Alt_R"),
-    ("", "Meta_L"),
-    ("", "Meta_R"),
-    ("", "Shift_L"),
-    ("", "Shift_R"),
-    ("", "grave"),
     ("SPACE", " "),
 ];
+
+const MODIFIER_KEY_NAMES: &[&str] = &[
+    "Shift_L",
+    "Shift_R",
+    "Control_L",
+    "Control_R",
+    "Alt_L",
+    "Alt_R",
+    "Meta_L",
+    "Meta_R",
+    "Super_L",
+    "Super_R",
+    "Hyper_L",
+    "Hyper_R",
+    "ISO_Level3_Shift",
+    "ISO_Level5_Shift",
+    "Caps_Lock",
+    "Num_Lock",
+    "Scroll_Lock",
+];
+
+fn key_name_to_keystr(key_name: &str) -> Option<&str> {
+    if MODIFIER_KEY_NAMES.contains(&key_name) {
+        return None;
+    }
+
+    Some(
+        KEYSTRING_MAP
+            .iter()
+            .find(|(_, gdk_name)| *gdk_name == key_name)
+            .map_or(key_name, |(mpv_name, _)| mpv_name),
+    )
+}
 
 fn keyval_to_keystr(keyval: u32) -> Option<String> {
     let key = unsafe { gtk::gdk::Key::from_glib(keyval) };
@@ -347,9 +368,5 @@ fn keyval_to_keystr(keyval: u32) -> Option<String> {
         key.name()?.to_string()
     };
 
-    KEYSTRING_MAP
-        .iter()
-        .find(|(_, keyval_str)| **keyval_str == key_name)
-        .map(|(keystr, _)| keystr.to_string())
-        .or(Some(key_name))
+    key_name_to_keystr(&key_name).map(str::to_owned)
 }

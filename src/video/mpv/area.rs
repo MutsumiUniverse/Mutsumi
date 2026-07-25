@@ -1,6 +1,5 @@
 use glib::Object;
 use gtk::{gio, glib, subclass::prelude::*};
-use tracing::info;
 
 use crate::{
     PlayParams,
@@ -224,7 +223,7 @@ impl MPVGLArea {
             async move {
                 let mpv = obj.mpv();
 
-                info!("Now Playing: {}", url);
+                tracing::info!(target: "mutsumi::mpv", source = url, "loading media");
                 mpv.load_video(&url);
 
                 if let Some(start_time) = start_time {

@@ -1,7 +1,7 @@
 use adw::prelude::*;
 use mutsumi::{MutsumiPlayer, PlayParams, PlaySource};
 
-const DEFAULT_URL: &str = "https://www.bilibili.com/video/BV1m9GE6wEPt";
+const DEFAULT_URL: &str = "https://www.youtube.com/watch?v=MyNoJ7C4WRQ";
 
 fn main() {
     #[cfg(feature = "profiling")]
@@ -12,6 +12,15 @@ fn main() {
         .init();
 
     mutsumi::force_gl_renderer();
+    mutsumi::set_mpv_initializer(|init| {
+        init.set_property(
+            "ytdl-raw-options",
+            "cookies-from-browser=firefox".to_string(),
+        )?;
+        init.set_property("ytdl-format", "best".to_string())?;
+        Ok(())
+    })
+    .expect("Failed to set mpv initializer");
 
     let url = std::env::args()
         .nth(1)
@@ -26,10 +35,6 @@ fn main() {
 
         let player = MutsumiPlayer::new();
 
-        player.mpv().set_property(
-            "ytdl-raw-options",
-            "cookies-from-browser=firefox".to_string(),
-        );
         player
             .mpv()
             .command("script-binding", &["stats/display-stats-toggle"]);

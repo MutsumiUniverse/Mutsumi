@@ -498,6 +498,11 @@ impl MutsumiPlayer {
                         ListenEvent::DemuxerCacheTime(value) => {
                             obj.imp().video_scale.set_cache_end_time(value);
                         }
+                        ListenEvent::DemuxerCacheIdle(idle) => {
+                            if !idle {
+                                obj.on_cache_speed_update(0);
+                            }
+                        }
                         ListenEvent::TimePos(value) => {
                             obj.on_time_pos(value);
                         }

@@ -195,6 +195,10 @@ impl WlSurfaceHandler for SurfaceHandler {
                     match info.to_frame(buffer.unique_id(), state.event_tx.clone()) {
                         Some(frame) => SurfaceContentUpdate::Frame(frame),
                         None => {
+                            tracing::warn!(
+                                buffer_id = buffer.unique_id(),
+                                "wl-proxy-mpv: attached buffer was not created through a supported dmabuf protocol"
+                            );
                             buffer.send_release();
                             SurfaceContentUpdate::Clear
                         }
