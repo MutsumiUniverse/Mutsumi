@@ -193,6 +193,8 @@ impl MpvActor {
         mpv.observe_property("chapter-list", Format::String, 8)?;
         mpv.observe_property("speed", Format::Double, 9)?;
         mpv.observe_property("playlist", Format::String, 10)?;
+        mpv.observe_property("eof-reached", Format::Flag, 11)?;
+
 
         let mpv = SendMpv {
             mpv: Arc::new(mpv),
@@ -359,6 +361,11 @@ impl SendMpv {
                     "time-pos" => {
                         if let PropertyData::Int64(time) = change {
                             let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::TimePos(time));
+                        }
+                    }
+                    "eof-reached" => {
+                        if let PropertyData::Flag(true) = change {
+                            let _ = MPV_EVENT_CHANNEL.tx.send(ListenEvent::PlaybackEnded);
                         }
                     }
                     "paused-for-cache" => {

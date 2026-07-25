@@ -30,6 +30,7 @@ pub enum ListenEvent {
     Volume(i64),
     Speed(f64),
     Shutdown,
+    PlaybackEnded,
     DemuxerCacheTime(i64),
     DemuxerCacheIdle(bool),
     TimePos(i64),
