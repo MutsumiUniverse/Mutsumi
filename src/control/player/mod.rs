@@ -27,7 +27,7 @@ const NEXT_CHAPTER_KEYVAL: u32 = 65365; // Page_Up
 const PREV_CHAPTER_KEYVAL: u32 = 65366; // Page_Down
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum DanmakuSource {
+pub enum DanmakuSource {
     #[default]
     None,
     MpvTrack,
@@ -158,8 +158,8 @@ mod imp {
         #[template_child]
         pub danmaku_status_group: TemplateChild<adw::PreferencesGroup>,
 
-        pub(super) danmaku_source: Cell<DanmakuSource>,
-        pub(super) danmaku_loading_source: Cell<DanmakuSource>,
+        pub danmaku_source: Cell<DanmakuSource>,
+        pub danmaku_loading_source: Cell<DanmakuSource>,
         pub danmaku_attribution: RefCell<Option<String>>,
         pub danmaku_count: Cell<usize>,
         pub danmaku_generation: Cell<u64>,

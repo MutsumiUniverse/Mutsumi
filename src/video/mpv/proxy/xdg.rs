@@ -14,13 +14,13 @@ use wl_proxy::{
 
 use super::SharedState;
 
-pub(super) struct ToplevelEntry {
-    pub(super) xdg_surface: Rc<XdgSurface>,
-    pub(super) toplevel: Rc<XdgToplevel>,
+pub struct ToplevelEntry {
+    pub xdg_surface: Rc<XdgSurface>,
+    pub toplevel: Rc<XdgToplevel>,
 }
 
-pub(super) struct WmBaseHandler {
-    pub(super) state: Rc<RefCell<SharedState>>,
+pub struct WmBaseHandler {
+    pub state: Rc<RefCell<SharedState>>,
 }
 
 impl XdgWmBaseHandler for WmBaseHandler {

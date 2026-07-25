@@ -1,4 +1,7 @@
-use std::{ops::Deref, sync::Arc};
+use std::{
+    ops::Deref,
+    sync::{Arc, OnceLock},
+};
 
 use crate::MutsumiMpvError;
 
@@ -11,6 +14,24 @@ use libmpv2::{
 use mutsumi_prelude::spawn_tokio_blocking;
 use once_cell::sync::Lazy;
 use serde_json::Value;
+
+type MpvInitializer =
+    dyn Fn(libmpv2::MpvInitializer) -> libmpv2::Result<()> + Send + Sync + 'static;
+
+static MPV_INITIALIZER: OnceLock<Box<MpvInitializer>> = OnceLock::new();
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("the mpv initializer has already been set")]
+pub struct MpvInitializerAlreadySet;
+
+pub fn set_mpv_initializer<F>(initializer: F) -> Result<(), MpvInitializerAlreadySet>
+where
+    F: Fn(libmpv2::MpvInitializer) -> libmpv2::Result<()> + Send + Sync + 'static,
+{
+    MPV_INITIALIZER
+        .set(Box::new(initializer))
+        .map_err(|_| MpvInitializerAlreadySet)
+}
 
 struct SendMpv {
     mpv: Arc<Mpv>,
@@ -141,6 +162,11 @@ impl MpvActor {
             _ = mpv.set_option("input-default-bindings", "yes");
             _ = mpv.set_property("hwdec", "auto-safe");
             _ = mpv.set_property("keep-open", "yes");
+
+            if let Some(initializer) = MPV_INITIALIZER.get() {
+                initializer(mpv)?;
+            }
+
             Ok(())
         })
         .expect("Failed to create mpv instance")

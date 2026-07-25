@@ -28,7 +28,7 @@ use wl_proxy::{
 
 use super::{DmabufFrame, DmabufPlane, ProxyEvent, SharedState};
 
-pub(super) static ALLOWED_FORMAT_PAIRS: OnceLock<HashSet<(u32, u64)>> = OnceLock::new();
+pub static ALLOWED_FORMAT_PAIRS: OnceLock<HashSet<(u32, u64)>> = OnceLock::new();
 
 struct StoredPlane {
     fd: OwnedFd,
@@ -36,8 +36,8 @@ struct StoredPlane {
     stride: u32,
 }
 
-pub(super) struct BufferInfo {
-    pub(super) buffer: Rc<WlBuffer>,
+pub struct BufferInfo {
+    pub buffer: Rc<WlBuffer>,
     planes: Vec<StoredPlane>,
     width: u32,
     height: u32,
@@ -46,7 +46,7 @@ pub(super) struct BufferInfo {
 }
 
 impl BufferInfo {
-    pub(super) fn to_frame(
+    pub fn to_frame(
         &self,
         buffer_id: u64,
         event_tx: flume::Sender<ProxyEvent>,
@@ -79,8 +79,8 @@ impl BufferInfo {
     }
 }
 
-pub(super) struct DmabufHandler {
-    pub(super) state: Rc<RefCell<SharedState>>,
+pub struct DmabufHandler {
+    pub state: Rc<RefCell<SharedState>>,
 }
 
 impl ZwpLinuxDmabufV1Handler for DmabufHandler {

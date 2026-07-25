@@ -16,7 +16,7 @@ static NEXT_FRAME_ID: AtomicU64 = AtomicU64::new(1);
 static PROFILE: LazyLock<Mutex<ProfileData>> = LazyLock::new(|| Mutex::new(ProfileData::default()));
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Stage {
+pub enum Stage {
     BufferProduced,
     TextureBuildStarted,
     TextureBuilt,
@@ -144,7 +144,7 @@ pub fn start_proxy_profiling() -> ProxyProfilingGuard {
     }
 }
 
-pub(crate) fn begin_frame() -> Option<u64> {
+pub fn begin_frame() -> Option<u64> {
     if !ACTIVE.load(Ordering::Acquire) {
         return None;
     }
@@ -157,7 +157,7 @@ pub(crate) fn begin_frame() -> Option<u64> {
     Some(frame_id)
 }
 
-pub(crate) fn mark(frame_id: Option<u64>, stage: Stage) {
+pub fn mark(frame_id: Option<u64>, stage: Stage) {
     if let Some(frame_id) = frame_id.filter(|_| ACTIVE.load(Ordering::Acquire)) {
         PROFILE.lock().unwrap().record(frame_id, stage);
     }

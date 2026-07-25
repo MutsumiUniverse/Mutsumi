@@ -1,6 +1,6 @@
 mod dmabuf;
 #[cfg(feature = "profiling")]
-pub(crate) mod profiling;
+pub mod profiling;
 mod surface;
 mod xdg;
 
@@ -94,7 +94,7 @@ pub struct DmabufFrame {
     buffer_id: u64,
     event_tx: flume::Sender<ProxyEvent>,
     #[cfg(feature = "profiling")]
-    pub(crate) profile_frame_id: Option<u64>,
+    pub profile_frame_id: Option<u64>,
 }
 
 impl Drop for DmabufFrame {

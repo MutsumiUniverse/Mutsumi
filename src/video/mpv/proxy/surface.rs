@@ -28,8 +28,8 @@ use super::{
     CURRENT_SCALE, FRAME_CHANNEL, FrameCallbacks, SharedState, SurfaceContentUpdate, SurfaceUpdate,
 };
 
-pub(super) struct CompositorHandler {
-    pub(super) state: Rc<RefCell<SharedState>>,
+pub struct CompositorHandler {
+    pub state: Rc<RefCell<SharedState>>,
 }
 
 impl WlCompositorHandler for CompositorHandler {
@@ -50,7 +50,7 @@ impl WlCompositorHandler for CompositorHandler {
     }
 }
 
-pub(super) struct SubcompositorHandler;
+pub struct SubcompositorHandler;
 
 impl WlSubcompositorHandler for SubcompositorHandler {
     fn handle_get_subsurface(
@@ -73,7 +73,7 @@ impl WlSubsurfaceHandler for SubsurfaceHandler {
     }
 }
 
-pub(super) struct ViewporterHandler;
+pub struct ViewporterHandler;
 
 impl WpViewporterHandler for ViewporterHandler {
     fn handle_destroy(&mut self, slf: &Rc<WpViewporter>) {
@@ -99,8 +99,8 @@ impl WpViewportHandler for ViewportHandler {
     }
 }
 
-pub(super) struct FractionalScaleManagerHandler {
-    pub(super) state: Rc<RefCell<SharedState>>,
+pub struct FractionalScaleManagerHandler {
+    pub state: Rc<RefCell<SharedState>>,
 }
 
 impl WpFractionalScaleManagerV1Handler for FractionalScaleManagerHandler {
