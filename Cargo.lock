@@ -208,17 +208,13 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "danmakw"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b0f9b6fa8d3540b9d328c0960e37988ad1294b452610445eb79bee193fc1d34"
+checksum = "f764d9b0b838eed7009a188d08d39109b41db1c02dcd5ec424a113ef6c9eb00e"
 dependencies = [
- "cairo-rs",
- "flume",
  "glib",
  "gtk4",
- "mutsumi-prelude",
  "pango",
- "pangocairo",
  "quick-xml 0.41.0",
  "thiserror",
 ]
@@ -1132,31 +1128,6 @@ dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
- "system-deps",
-]
-
-[[package]]
-name = "pangocairo"
-version = "0.22.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "738a2ef690f51487814ff7172e0417c8e4fa2d7567571e5eb299d38b47b543ab"
-dependencies = [
- "cairo-rs",
- "glib",
- "pango",
- "pangocairo-sys",
-]
-
-[[package]]
-name = "pangocairo-sys"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d95cb73468373b9e568abb1afbaf5b42fe6ab9128fc41b5f2adbf69451c3c77f"
-dependencies = [
- "cairo-sys-rs",
- "glib-sys",
- "libc",
- "pango-sys",
  "system-deps",
 ]
 

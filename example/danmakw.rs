@@ -1,4 +1,5 @@
 use adw::prelude::*;
+use danmakw::Intensity;
 use mutsumi::Danmakw;
 
 mod parse;
@@ -18,7 +19,7 @@ fn main() {
         mutsumi::init();
 
         let danmakw = Danmakw::new();
-        danmakw.set_intensity(3);
+        danmakw.set_intensity(Intensity::Overlay);
 
         let window = adw::ApplicationWindow::builder()
             .application(app)

@@ -1,7 +1,7 @@
 use adw::prelude::*;
 use mutsumi::{MutsumiPlayer, PlayParams, PlaySource};
 
-const DEFAULT_URL: &str = "https://www.youtube.com/watch?v=MyNoJ7C4WRQ";
+const DEFAULT_URL: &str = "https://www.bilibili.com/video/BV19X9eBpEfS";
 
 fn main() {
     #[cfg(feature = "profiling")]
@@ -17,7 +17,6 @@ fn main() {
             "ytdl-raw-options",
             "cookies-from-browser=firefox".to_string(),
         )?;
-        init.set_property("ytdl-format", "best".to_string())?;
         Ok(())
     })
     .expect("Failed to set mpv initializer");
