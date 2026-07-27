@@ -162,6 +162,7 @@ impl MpvActor {
             mpv.set_option("input-default-bindings", "yes")?;
             mpv.set_option("hwdec", "auto-safe")?;
             mpv.set_option("keep-open", "yes")?;
+            mpv.set_option("vo", "gpu-next")?;
 
             if let Some(initializer) = MPV_INITIALIZER.get() {
                 initializer(mpv)?;
@@ -194,7 +195,6 @@ impl MpvActor {
         mpv.observe_property("speed", Format::Double, 9)?;
         mpv.observe_property("playlist", Format::String, 10)?;
         mpv.observe_property("eof-reached", Format::Flag, 11)?;
-
 
         let mpv = SendMpv {
             mpv: Arc::new(mpv),

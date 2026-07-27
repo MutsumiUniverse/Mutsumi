@@ -195,8 +195,6 @@ mod imp {
                 .collect();
 
             create_mpv_proxy(format_pairs);
-
-            self.mpv.mpv.set_property("vo", "gpu-next".to_owned());
         }
 
         pub fn throw_error(&self, code: MutsumiMpvError) {
