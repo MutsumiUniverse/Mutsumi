@@ -64,15 +64,14 @@ mod imp {
         }
     }
 
-    impl WidgetImpl for MutsumiVideoPlayer {
-        fn snapshot(&self, snapshot: &gtk::Snapshot) {
+    impl MutsumiVideoPlayer {
+        fn update_viewport(&self, width: i32, height: i32) {
             let obj = self.obj();
 
             let Some(native) = obj.native() else {
                 tracing::warn!(
                     "Failed to get native from widget. Video may not display correctly."
                 );
-                self.parent_snapshot(snapshot);
                 return;
             };
 
@@ -80,18 +79,27 @@ mod imp {
                 tracing::warn!(
                     "Failed to get surface from native. Video may not display correctly."
                 );
-                self.parent_snapshot(snapshot);
                 return;
             };
 
-            let scale = surface.scale();
-
-            let viewport = (obj.width(), obj.height(), scale);
+            let viewport = (width, height, surface.scale());
             if self.last_viewport.replace(viewport) != viewport {
-                let _ = VIEWPORT_CHANNEL.tx.send((viewport.0, viewport.1, scale));
+                let _ = VIEWPORT_CHANNEL.tx.send(viewport);
             }
+        }
+    }
 
-            self.parent_snapshot(snapshot);
+    impl WidgetImpl for MutsumiVideoPlayer {
+        fn realize(&self) {
+            self.parent_realize();
+
+            let obj = self.obj();
+            self.update_viewport(obj.width(), obj.height());
+        }
+
+        fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
+            self.parent_size_allocate(width, height, baseline);
+            self.update_viewport(width, height);
         }
     }
     impl BinImpl for MutsumiVideoPlayer {}
